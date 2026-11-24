@@ -1,0 +1,107 @@
+version: 2
+
+models:
+  - name: stg_openf1__meetings
+    description: Cleaned Grand Prix weekend metadata from OpenF1.
+    columns:
+      - name: meeting_key
+        description: Primary key for a Grand Prix meeting.
+        data_tests:
+          - unique
+          - not_null
+      - name: meeting_name
+        data_tests:
+          - not_null
+
+  - name: stg_openf1__sessions
+    description: Cleaned F1 session records with start/end timestamps and circuit metadata.
+    config:
+      event_time: session_started_at
+    columns:
+      - name: session_key
+        description: Primary key for an F1 session.
+        data_tests:
+          - unique
+          - not_null
+      - name: meeting_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_openf1__meetings')
+                field: meeting_key
+
+  - name: stg_openf1__drivers
+    description: Driver and racing team (constructor) roster per session.
+    columns:
+      - name: driver_session_id
+        description: Composite primary key (`session_key-driver_number`).
+        data_tests:
+          - unique
+          - not_null
+      - name: session_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_openf1__sessions')
+                field: session_key
+      - name: team_name
+        description: Racing team (constructor) name for the driver in this session.
+        data_tests:
+          - not_null
+
+  - name: stg_openf1__stints
+    description: Tire compound stints per driver and session.
+    columns:
+      - name: stint_id
+        description: Composite primary key (`session_key-driver_number-stint_number`).
+        data_tests:
+          - unique
+          - not_null
+      - name: compound
+        description: Pirelli tire compound used during the stint.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['SOFT', 'MEDIUM', 'HARD', 'INTERMEDIATE', 'WET', 'UNKNOWN']
+
+  - name: stg_openf1__pit_stops
+    description: Pit lane entries with stationary crew stop duration and total pit lane duration.
+    config:
+      event_time: pit_entered_at
+    columns:
+      - name: pit_stop_id
+        description: Composite primary key (`session_key-driver_number-lap_number`).
+        data_tests:
+          - unique
+          - not_null
+      - name: lane_duration_seconds
+        data_tests:
+          - not_null
+
+  - name: stg_openf1__laps
+    description: Lap-by-lap timing, sector durations, speed traps, and pit-out flags.
+    config:
+      event_time: lap_started_at
+    columns:
+      - name: lap_id
+        description: Composite primary key (`session_key-driver_number-lap_number`).
+        data_tests:
+          - unique
+          - not_null
+      - name: lap_number
+        data_tests:
+          - not_null
+
+  - name: stg_openf1__results
+    description: Official finishing positions, championship points, and DNF/DNS/DSQ flags per driver and race.
+    columns:
+      - name: result_id
+        description: Composite primary key (`session_key-driver_number`).
+        data_tests:
+          - unique
+          - not_null
+      - name: points_scored
+        data_tests:
+          - not_null
