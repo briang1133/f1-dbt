@@ -1,0 +1,26 @@
+version: 2
+
+sources:
+  - name: openf1
+    description: Raw Formula 1 session, driver/team, stint, pit stop, lap, and result data ingested from the public OpenF1 API.
+    schema: raw_openf1
+    config:
+      loaded_at_field: _ingested_at
+      freshness:
+        warn_after: { count: 7, period: day }
+        error_after: { count: 30, period: day }
+    tables:
+      - name: meetings
+        description: Grand Prix race weekends (circuits, locations, dates).
+      - name: sessions
+        description: Individual sessions (filtered to Race sessions in our starter load).
+      - name: drivers
+        description: Driver and racing team (constructor) roster per session.
+      - name: stints
+        description: Tire compound stints per driver and session.
+      - name: pit
+        description: Pit lane entries, stationary pit crew stop durations, and total pit durations.
+      - name: laps
+        description: Lap-by-lap timing, sector durations, speed traps, and pit-out flags.
+      - name: session_result
+        description: Official finishing positions, points scored, and DNF/DNS/DSQ flags.

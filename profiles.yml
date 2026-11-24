@@ -1,0 +1,13 @@
+f1_dbt:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: data/f1.duckdb
+      schema: analytics
+      threads: 4
+    ci:
+      type: duckdb
+      path: data/f1.duckdb
+      schema: analytics_ci
+      threads: 4

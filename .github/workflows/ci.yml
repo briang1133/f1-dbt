@@ -1,0 +1,70 @@
+name: dbt CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: dbt-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dbt-build-and-test:
+    name: dbt v2 (DuckDB) Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install Python dependencies
+        run: uv sync --frozen
+
+      - name: Install dbt v2 (Fusion)
+        run: |
+          curl -fsSL https://public.cdn.getdbt.com/fs/install/install.sh | sh -s -- --update
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Verify dbt version
+        run: dbt --version
+
+      - name: Cache OpenF1 raw JSON sample
+        uses: actions/cache@v4
+        with:
+          path: data/raw
+          key: openf1-raw-2025-limit-1-v1
+
+      - name: Ingest sample OpenF1 race into DuckDB
+        run: uv run python scripts/ingest_openf1.py --year 2025 --limit 1
+
+      - name: Debug dbt connection
+        run: dbt debug --target ci
+
+      - name: Parse dbt project
+        run: dbt parse --target ci
+
+      - name: Check source freshness
+        run: dbt source freshness --target ci
+
+      - name: Build models and run tests
+        run: dbt build --target ci
+
+      - name: Lint SQL models
+        run: dbt lint --target ci
+
+      - name: Upload manifest artifact (main)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-manifest
+          path: target/manifest.json
+          if-no-files-found: warn
+          retention-days: 30

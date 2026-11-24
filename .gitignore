@@ -1,0 +1,20 @@
+# Python / uv
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local DuckDB database & cached API data
+data/
+*.duckdb
+*.duckdb.wal
+
+# dbt build artifacts & local user metadata
+target/
+dbt_packages/
+logs/
+.user.yml
+
+# OS / Editor
+.DS_Store
+dbt_internal_packages/
