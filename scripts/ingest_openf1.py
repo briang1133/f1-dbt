@@ -78,7 +78,12 @@ def load_into_duckdb(tables: dict[str, list[dict[str, Any]]], db_path: Path) -> 
     staging_dir = DATA_DIR / "ndjson"
     staging_dir.mkdir(parents=True, exist_ok=True)
 
-    con = duckdb.connect(str(db_path))
+    # Use v1.4.0 storage compatibility so both local DuckDB 2.x and dbt v2's
+    # bundled ADBC driver (e.g. on Linux CI runners) can read the database file.
+    con = duckdb.connect(
+        str(db_path),
+        config={"storage_compatibility_version": "v1.4.0"},
+    )
     try:
         con.execute("CREATE SCHEMA IF NOT EXISTS raw_openf1;")
         for table_name, records in tables.items():
