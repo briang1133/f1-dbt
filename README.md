@@ -15,13 +15,14 @@ Learning modern **dbt v2 (Fusion engine)** with **DuckDB**, **dbt Semantic Model
    ```bash
    uv sync
    ```
-2. **Ingest OpenF1 race data into local DuckDB (`data/f1.duckdb`)**
+2. **Ingest OpenF1 race data incrementally into local DuckDB (`data/f1.duckdb`)**
    ```bash
-   # Load first 6 races of 2025 (cached in data/raw/ so re-runs are instant)
-   uv run python scripts/ingest_openf1.py --year 2025 --limit 6
+   # Load all completed 2025 + 2026 races (idempotent DELETE+INSERT by session_key;
+   # skips already-loaded races and paces live API calls to respect OpenF1 rate limits)
+   uv run python scripts/ingest_openf1.py --year 2025 2026 --limit 0 --refresh-metadata
 
-   # Or load the full season
-   uv run python scripts/ingest_openf1.py --year 2025 --limit 0
+   # Backfill a single race by session_key
+   uv run python scripts/ingest_openf1.py --year 2026 --limit 0 --session-key 11420
    ```
 3. **Run dbt v2 locally**
    ```bash

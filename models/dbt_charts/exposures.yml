@@ -25,6 +25,8 @@ exposures:
           - ref('fct_team_race_performance')
           pit_crew_median:
           - ref('int_team_pit_stops')
+          season_options:
+          - ref('fct_team_race_performance')
           team_options:
           - ref('dim_teams')
           team_scorecard:
@@ -53,6 +55,8 @@ exposures:
           - ref('fct_team_race_performance')
           pit_crew_median:
           - ref('int_team_pit_stops')
+          season_options:
+          - ref('fct_team_race_performance')
           team_options:
           - ref('dim_teams')
           team_scorecard:

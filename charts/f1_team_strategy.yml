@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=https://docs.dbtcharts.com/schema/board.json
 title: F1 Constructor Strategy & Pit Execution
 text: |
-  2025 Formula 1 team performance built on local **DuckDB** + **dbt v2** models
+  2025–2026 Formula 1 team performance built on local **DuckDB** + **dbt v2** models
   (`fct_team_race_performance`, `int_team_pit_stops`, and `int_stint_pace`).
-  Use the team filter to focus on a single constructor or compare the full grid.
+  Filter by **Season** (2025 vs 2026) or **Racing Team** to compare strategy, pit crew speed, and points.
 
 source: f1_dbt
 
@@ -12,6 +12,12 @@ style:
     seconds_2dp: ",.2f"
 
 variables:
+  season:
+    data_type: number
+    options:
+      query: season_options
+      column: season_year
+
   team:
     label: Racing Team
     options:
@@ -19,6 +25,13 @@ variables:
       column: team_name
 
 queries:
+  season_options:
+    notes: Available F1 seasons loaded in the warehouse.
+    sql: |
+      select distinct season_year
+      from {{ ref('fct_team_race_performance') }}
+      order by season_year desc
+
   team_options:
     notes: Constructor options for the team filter dropdown.
     sql: |
@@ -27,7 +40,7 @@ queries:
       order by team_name
 
   headline:
-    notes: Top-level KPI summary across the selected team(s) and loaded races.
+    notes: Top-level KPI summary across the selected season(s) and team(s).
     sql: |
       select
           count(distinct session_key) as races_analyzed,
@@ -37,7 +50,9 @@ queries:
               3
           ) as elite_stop_rate
       from {{ ref('fct_team_race_performance') }}
-      where {{ filter('team_name', team) }}
+      where
+          {{ filter('season_year', season) }}
+          and {{ filter('team_name', team) }}
     formats:
       races_analyzed: integer
       fastest_stop_s: seconds_2dp
@@ -46,31 +61,47 @@ queries:
   cumulative_points:
     notes: Cumulative constructor championship points across rounds for the top 5 teams (or selected team).
     sql: |
-      with top_teams as (
-          select team_name
+      with filtered as (
+          select *
           from {{ ref('fct_team_race_performance') }}
-          where {{ filter('team_name', team) }}
+          where
+              {{ filter('season_year', season) }}
+              and {{ filter('team_name', team) }}
+      ),
+      top_teams as (
+          select team_name
+          from filtered
           group by team_name
           order by sum(team_points_scored) desc
           limit 5
+      ),
+      season_span as (
+          select count(distinct season_year) as season_count
+          from filtered
       )
       select
           f.race_date,
-          f.team_name,
+          case
+              when s.season_count > 1
+                  then f.team_name || ' (' || cast(f.season_year as varchar) || ')'
+              else f.team_name
+          end as team_series,
           sum(f.team_points_scored) over (
-              partition by f.team_name
+              partition by f.season_year, f.team_name
               order by f.race_date
           ) as cumulative_points
-      from {{ ref('fct_team_race_performance') }} as f
+      from filtered as f
       inner join top_teams as t
           on f.team_name = t.team_name
-      order by f.race_date, f.team_name
+      cross join season_span as s
+      order by f.race_date, team_series
 
   team_scorecard:
-    notes: Season-to-date constructor scorecard mirroring our dbt semantic metrics.
+    notes: Constructor scorecard mirroring our dbt semantic metrics.
     sql: |
       select
           team_name as team,
+          cast(count(*) as integer) as races,
           cast(round(sum(team_points_scored), 0) as integer) as points,
           round(sum(team_points_scored) / count(*), 1) as pts_per_race,
           round(
@@ -84,10 +115,13 @@ queries:
           ) as elite_stop_rate,
           max(max_speed_trap_kph) as top_kph
       from {{ ref('fct_team_race_performance') }}
-      where {{ filter('team_name', team) }}
+      where
+          {{ filter('season_year', season) }}
+          and {{ filter('team_name', team) }}
       group by team_name
       order by points desc
     formats:
+      races: integer
       points: integer
       double_pts_rate: percent
       elite_stop_rate: percent
@@ -102,6 +136,7 @@ queries:
       from {{ ref('int_team_pit_stops') }}
       where
           is_service_stop
+          and {{ filter('season_year', season) }}
           and {{ filter('team_name', team) }}
       group by team_name
       order by median_stop_seconds asc
@@ -113,7 +148,9 @@ queries:
           compound,
           count(*) as stints
       from {{ ref('int_stint_pace') }}
-      where {{ filter('team_name', team) }}
+      where
+          {{ filter('season_year', season) }}
+          and {{ filter('team_name', team) }}
       group by compound
       order by stints desc
 
@@ -143,7 +180,7 @@ charts:
     subtitle: Cumulative points across rounds (top 5 constructors or selected team)
     x: race_date
     y: cumulative_points
-    color: team_name
+    color: team_series
     y_label: Cumulative Points
 
   points_bar:
