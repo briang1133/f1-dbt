@@ -1,0 +1,14 @@
+snapshots:
+  - name: snp_driver_team_rosters
+    description: >
+      Type-2 SCD snapshot tracking each driver's racing team assignment over
+      time. Captures mid-season driver swaps (e.g. Red Bull Racing <-> Racing
+      Bulls) automatically whenever new races are ingested and dbt snapshot runs.
+    relation: ref('int_latest_driver_teams')
+    config:
+      schema: snapshots
+      unique_key: driver_number
+      strategy: check
+      check_cols:
+        - team_name
+        - team_colour_hex
