@@ -18,3 +18,4 @@ logs/
 # OS / Editor
 .DS_Store
 dbt_internal_packages/
+renders/

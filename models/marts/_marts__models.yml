@@ -1,15 +1,32 @@
 version: 2
 
 models:
+  - name: metricflow_time_spine
+    description: Daily calendar time spine powering dbt Semantic Layer / MetricFlow time-based queries.
+    time_spine:
+      standard_granularity_column: date_day
+    columns:
+      - name: date_day
+        description: Calendar date at daily granularity.
+        granularity: day
+        data_tests:
+          - unique
+          - not_null
+
   - name: dim_teams
     description: One row per Formula 1 racing team (constructor) with branding and season roster summary.
     config:
       contract:
         enforced: true
+    semantic_model:
+      enabled: true
     columns:
       - name: team_name
         description: Primary key for a Formula 1 racing team.
         data_type: varchar
+        entity:
+          type: primary
+          name: team
         constraints:
           - type: not_null
         data_tests:
@@ -17,6 +34,8 @@ models:
           - not_null
       - name: team_colour_hex
         data_type: varchar
+        dimension:
+          type: categorical
       - name: races_entered
         data_type: integer
         constraints:
@@ -27,6 +46,8 @@ models:
           - type: not_null
       - name: driver_roster
         data_type: varchar
+        dimension:
+          type: categorical
       - name: first_race_date
         data_type: date
       - name: latest_race_date
@@ -40,10 +61,16 @@ models:
     config:
       contract:
         enforced: true
+    semantic_model:
+      enabled: true
+    agg_time_dimension: race_date
     columns:
       - name: team_race_id
         description: Primary key (`session_key-team_name`).
         data_type: varchar
+        entity:
+          type: primary
+          name: team_race
         constraints:
           - type: not_null
         data_tests:
@@ -59,18 +86,34 @@ models:
           - type: not_null
       - name: meeting_name
         data_type: varchar
+        dimension:
+          type: categorical
       - name: circuit_short_name
         data_type: varchar
+        dimension:
+          type: categorical
       - name: country_name
         data_type: varchar
+        dimension:
+          type: categorical
       - name: season_year
         data_type: integer
+        dimension:
+          type: categorical
       - name: race_date
         data_type: date
+        dimension:
+          type: time
+        granularity: day
         constraints:
           - type: not_null
       - name: team_name
         data_type: varchar
+        entity:
+          type: foreign
+          name: team
+        dimension:
+          type: categorical
         constraints:
           - type: not_null
         data_tests:
@@ -152,6 +195,57 @@ models:
         data_type: integer
       - name: compounds_used
         data_type: varchar
+        dimension:
+          type: categorical
+    metrics:
+      - name: team_points
+        description: Total championship points scored by a racing team.
+        label: Team Points
+        type: simple
+        agg: sum
+        expr: team_points_scored
+      - name: races_run
+        description: Number of Grand Prix team entries.
+        label: Races Run
+        type: simple
+        agg: count
+        expr: team_race_id
+      - name: double_points_races
+        description: Races where both cars from the team finished in the points.
+        label: Double-Points Races
+        type: simple
+        agg: sum
+        expr: "case when is_double_points_finish then 1 else 0 end"
+      - name: total_service_pit_stops
+        description: Total stationary tire-service pit stops completed.
+        label: Service Pit Stops
+        type: simple
+        agg: sum
+        expr: service_pit_stops
+      - name: total_elite_pit_stops
+        description: Total pit stops completed in under 2.5 seconds stationary.
+        label: Elite Pit Stops (<2.5s)
+        type: simple
+        agg: sum
+        expr: elite_stop_count
+      - name: avg_pit_stop_seconds
+        description: Mean stationary pit stop duration in seconds.
+        label: Avg Pit Stop (s)
+        type: simple
+        agg: average
+        expr: avg_stop_duration_seconds
+      - name: total_dnfs
+        description: Total Did Not Finish retirements.
+        label: Total DNFs
+        type: simple
+        agg: sum
+        expr: dnf_count
+      - name: fastest_stop_awards
+        description: Number of Grands Prix where the team recorded the fastest pit stop.
+        label: Fastest Pit Stop Awards
+        type: simple
+        agg: sum
+        expr: "case when had_race_fastest_stop then 1 else 0 end"
 
   - name: fct_race_laps
     description: >
@@ -170,3 +264,42 @@ models:
       - name: team_name
         data_tests:
           - not_null
+
+metrics:
+  - name: elite_pit_stop_rate
+    description: Share of stationary service pit stops completed in under 2.5 seconds.
+    label: Elite Pit Stop Rate
+    type: ratio
+    numerator: total_elite_pit_stops
+    denominator: total_service_pit_stops
+
+  - name: double_points_rate
+    description: Share of Grands Prix where both cars from a team scored points.
+    label: Double-Points Rate
+    type: ratio
+    numerator: double_points_races
+    denominator: races_run
+
+  - name: points_per_race
+    description: Average championship points scored per Grand Prix entry.
+    label: Points per Race
+    type: derived
+    expr: "pts / races"
+    input_metrics:
+      - name: team_points
+        alias: pts
+      - name: races_run
+        alias: races
+
+saved_queries:
+  - name: constructor_championship_summary
+    description: Season-to-date constructor standings, double-points consistency, and pit crew execution.
+    query_params:
+      metrics:
+        - team_points
+        - points_per_race
+        - double_points_rate
+        - avg_pit_stop_seconds
+        - elite_pit_stop_rate
+      group_by:
+        - Dimension('team_race__team_name')

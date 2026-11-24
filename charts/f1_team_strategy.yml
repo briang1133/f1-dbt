@@ -1,0 +1,201 @@
+# yaml-language-server: $schema=https://docs.dbtcharts.com/schema/board.json
+title: F1 Constructor Strategy & Pit Execution
+text: |
+  2025 Formula 1 team performance built on local **DuckDB** + **dbt v2** models
+  (`fct_team_race_performance`, `int_team_pit_stops`, and `int_stint_pace`).
+  Use the team filter to focus on a single constructor or compare the full grid.
+
+source: f1_dbt
+
+style:
+  formats:
+    seconds_2dp: ",.2f"
+
+variables:
+  team:
+    label: Racing Team
+    options:
+      query: team_options
+      column: team_name
+
+queries:
+  team_options:
+    notes: Constructor options for the team filter dropdown.
+    sql: |
+      select team_name
+      from {{ ref('dim_teams') }}
+      order by team_name
+
+  headline:
+    notes: Top-level KPI summary across the selected team(s) and loaded races.
+    sql: |
+      select
+          count(distinct session_key) as races_analyzed,
+          round(min(fastest_stop_duration_seconds), 2) as fastest_stop_s,
+          round(
+              sum(elite_stop_count) * 1.0 / nullif(sum(service_pit_stops), 0),
+              3
+          ) as elite_stop_rate
+      from {{ ref('fct_team_race_performance') }}
+      where {{ filter('team_name', team) }}
+    formats:
+      races_analyzed: integer
+      fastest_stop_s: seconds_2dp
+      elite_stop_rate: percent
+
+  cumulative_points:
+    notes: Cumulative constructor championship points across rounds for the top 5 teams (or selected team).
+    sql: |
+      with top_teams as (
+          select team_name
+          from {{ ref('fct_team_race_performance') }}
+          where {{ filter('team_name', team) }}
+          group by team_name
+          order by sum(team_points_scored) desc
+          limit 5
+      )
+      select
+          f.race_date,
+          f.team_name,
+          sum(f.team_points_scored) over (
+              partition by f.team_name
+              order by f.race_date
+          ) as cumulative_points
+      from {{ ref('fct_team_race_performance') }} as f
+      inner join top_teams as t
+          on f.team_name = t.team_name
+      order by f.race_date, f.team_name
+
+  team_scorecard:
+    notes: Season-to-date constructor scorecard mirroring our dbt semantic metrics.
+    sql: |
+      select
+          team_name as team,
+          cast(round(sum(team_points_scored), 0) as integer) as points,
+          round(sum(team_points_scored) / count(*), 1) as pts_per_race,
+          round(
+              sum(case when is_double_points_finish then 1 else 0 end) * 1.0 / count(*),
+              3
+          ) as double_pts_rate,
+          round(avg(avg_stop_duration_seconds), 2) as avg_stop_s,
+          round(
+              sum(elite_stop_count) * 1.0 / nullif(sum(service_pit_stops), 0),
+              3
+          ) as elite_stop_rate,
+          max(max_speed_trap_kph) as top_kph
+      from {{ ref('fct_team_race_performance') }}
+      where {{ filter('team_name', team) }}
+      group by team_name
+      order by points desc
+    formats:
+      points: integer
+      double_pts_rate: percent
+      elite_stop_rate: percent
+      top_kph: integer
+
+  pit_crew_median:
+    notes: Median stationary pit crew stop duration (seconds) by constructor.
+    sql: |
+      select
+          team_name,
+          round(median(stop_duration_seconds), 2) as median_stop_seconds
+      from {{ ref('int_team_pit_stops') }}
+      where
+          is_service_stop
+          and {{ filter('team_name', team) }}
+      group by team_name
+      order by median_stop_seconds asc
+
+  compound_stints:
+    notes: Race stint count by Pirelli tire compound.
+    sql: |
+      select
+          compound,
+          count(*) as stints
+      from {{ ref('int_stint_pace') }}
+      where {{ filter('team_name', team) }}
+      group by compound
+      order by stints desc
+
+charts:
+  races_kpi:
+    type: kpi
+    query: headline
+    label: Races Analyzed
+    value: races_analyzed
+
+  fastest_stop_kpi:
+    type: kpi
+    query: headline
+    label: Fastest Pit Stop (s)
+    value: fastest_stop_s
+
+  elite_rate_kpi:
+    type: kpi
+    query: headline
+    label: Elite Pit Stops (<2.5s)
+    value: elite_stop_rate
+
+  points_trend:
+    type: line
+    query: cumulative_points
+    title: Championship Points Progression
+    subtitle: Cumulative points across rounds (top 5 constructors or selected team)
+    x: race_date
+    y: cumulative_points
+    color: team_name
+    y_label: Cumulative Points
+
+  points_bar:
+    type: bar
+    query: team_scorecard
+    title: Constructor Points
+    x: team
+    y: points
+
+  pit_speed_bar:
+    type: bar
+    query: pit_crew_median
+    title: Median Pit Crew Stop Time
+    subtitle: Stationary wheel-change duration in seconds (lower is faster)
+    x: team_name
+    y: median_stop_seconds
+    y_label: Median Stop (s)
+    sort:
+      by: median_stop_seconds
+    annotations:
+      - type: rule
+        y: 2.5
+        text: "Elite cutoff (2.5s)"
+
+  compound_bar:
+    type: bar
+    query: compound_stints
+    title: Tire Compound Usage
+    subtitle: Total race stints by Pirelli compound
+    x: compound
+    y: stints
+
+  scorecard_table:
+    type: table
+    query: team_scorecard
+    title: Constructor Scorecard
+
+rows:
+  - cols:
+      - races_kpi
+      - fastest_stop_kpi
+      - elite_rate_kpi
+
+  - cols:
+      - width: "62%"
+        rows:
+          - points_trend
+      - rows:
+          - points_bar
+
+  - cols:
+      - pit_speed_bar
+      - compound_bar
+
+  - scorecard_table

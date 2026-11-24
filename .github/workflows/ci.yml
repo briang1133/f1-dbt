@@ -11,9 +11,12 @@ concurrency:
   group: dbt-ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  DBT_ENGINE_NO_WARN_SEMANTIC_MANIFEST_VALIDATION: "1"
+
 jobs:
   dbt-build-and-test:
-    name: dbt v2 (DuckDB) Build & Test
+    name: dbt v2 (DuckDB) Build, Test & Charts
     runs-on: ubuntu-latest
 
     steps:
@@ -32,6 +35,9 @@ jobs:
         run: |
           curl -fsSL https://public.cdn.getdbt.com/fs/install/install.sh | sh -s -- --update
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Install dbt Charts (dct)
+        run: uv tool install dbt-charts
 
       - name: Verify dbt version
         run: dbt --version
@@ -54,11 +60,18 @@ jobs:
       - name: Check source freshness
         run: dbt source freshness --target ci
 
-      - name: Build models and run tests
+      - name: Build models, snapshots, contracts, and unit tests
         run: dbt build --target ci
 
       - name: Lint SQL models
         run: dbt lint --target ci
+
+      - name: Validate dbt Charts boards and exposures
+        env:
+          DBT_TARGET: ci
+        run: |
+          dct validate --warehouse
+          dct exposures --check
 
       - name: Upload manifest artifact (main)
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
