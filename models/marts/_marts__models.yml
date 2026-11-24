@@ -1,0 +1,172 @@
+version: 2
+
+models:
+  - name: dim_teams
+    description: One row per Formula 1 racing team (constructor) with branding and season roster summary.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: team_name
+        description: Primary key for a Formula 1 racing team.
+        data_type: varchar
+        constraints:
+          - type: not_null
+        data_tests:
+          - unique
+          - not_null
+      - name: team_colour_hex
+        data_type: varchar
+      - name: races_entered
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: distinct_drivers_used
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: driver_roster
+        data_type: varchar
+      - name: first_race_date
+        data_type: date
+      - name: latest_race_date
+        data_type: date
+
+  - name: fct_team_race_performance
+    description: >
+      Core analytics fact table at one row per racing team per Grand Prix,
+      combining championship points, reliability, pit crew execution, tire
+      strategy, and clean-air pace.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: team_race_id
+        description: Primary key (`session_key-team_name`).
+        data_type: varchar
+        constraints:
+          - type: not_null
+        data_tests:
+          - unique
+          - not_null
+      - name: session_key
+        data_type: bigint
+        constraints:
+          - type: not_null
+      - name: meeting_key
+        data_type: bigint
+        constraints:
+          - type: not_null
+      - name: meeting_name
+        data_type: varchar
+      - name: circuit_short_name
+        data_type: varchar
+      - name: country_name
+        data_type: varchar
+      - name: season_year
+        data_type: integer
+      - name: race_date
+        data_type: date
+        constraints:
+          - type: not_null
+      - name: team_name
+        data_type: varchar
+        constraints:
+          - type: not_null
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_teams')
+                field: team_name
+      - name: team_colour_hex
+        data_type: varchar
+      - name: drivers_started
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: drivers_classified
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: dnf_count
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: dsq_count
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: team_points_scored
+        data_type: double
+        constraints:
+          - type: not_null
+      - name: best_finish_position
+        data_type: integer
+      - name: avg_finish_position
+        data_type: double
+      - name: is_double_points_finish
+        data_type: boolean
+        constraints:
+          - type: not_null
+      - name: service_pit_stops
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: avg_stop_duration_seconds
+        data_type: double
+      - name: fastest_stop_duration_seconds
+        data_type: double
+      - name: avg_lane_duration_seconds
+        data_type: double
+      - name: elite_stop_count
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: slow_or_issue_stop_count
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: had_race_fastest_stop
+        data_type: boolean
+        constraints:
+          - type: not_null
+      - name: total_stints
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: distinct_compounds_used
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: avg_stint_laps
+        data_type: double
+      - name: fresh_tyre_stints
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: avg_clean_lap_seconds
+        data_type: double
+      - name: fastest_team_lap_seconds
+        data_type: double
+      - name: max_speed_trap_kph
+        data_type: integer
+      - name: compounds_used
+        data_type: varchar
+
+  - name: fct_race_laps
+    description: >
+      Microbatch incremental fact table of individual race laps enriched with
+      team, driver, circuit, and active tire compound, partitioned monthly by
+      lap_started_at for fast atomic backfills.
+    columns:
+      - name: lap_id
+        description: Primary key (`session_key-driver_number-lap_number`).
+        data_tests:
+          - unique
+          - not_null
+      - name: lap_started_at
+        data_tests:
+          - not_null
+      - name: team_name
+        data_tests:
+          - not_null
