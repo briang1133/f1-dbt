@@ -1,0 +1,210 @@
+version: 2
+
+models:
+  - name: int_team_pit_stops
+    description: >
+      Pit stops enriched with racing team, driver, race context, execution tier
+      classification, and within-race pit crew speed ranking. Protected by an
+      enforced dbt model contract.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: pit_stop_id
+        data_type: varchar
+        constraints:
+          - type: not_null
+        data_tests:
+          - unique
+          - not_null
+      - name: session_key
+        data_type: bigint
+        constraints:
+          - type: not_null
+      - name: meeting_key
+        data_type: bigint
+        constraints:
+          - type: not_null
+      - name: meeting_name
+        data_type: varchar
+      - name: circuit_short_name
+        data_type: varchar
+      - name: season_year
+        data_type: integer
+      - name: session_date
+        data_type: date
+      - name: pit_entered_at
+        data_type: timestamp
+      - name: team_name
+        data_type: varchar
+        constraints:
+          - type: not_null
+      - name: team_colour_hex
+        data_type: varchar
+      - name: driver_number
+        data_type: integer
+      - name: driver_acronym
+        data_type: varchar
+      - name: driver_full_name
+        data_type: varchar
+      - name: lap_number
+        data_type: integer
+      - name: stop_duration_seconds
+        data_type: double
+      - name: lane_duration_seconds
+        data_type: double
+      - name: pit_duration_seconds
+        data_type: double
+      - name: is_service_stop
+        data_type: boolean
+        constraints:
+          - type: not_null
+      - name: pit_execution_tier
+        data_type: varchar
+        constraints:
+          - type: not_null
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['elite', 'fast', 'standard', 'slow_or_issue', 'not_applicable']
+      - name: stop_rank_in_race
+        data_type: integer
+
+  - name: int_stint_pace
+    description: >
+      Tire compound stints enriched with clean-air lap pace metrics (excluding
+      Lap 1, pit-out laps, and Safety Car / VSC outlier laps >12% off session
+      fastest pace). Protected by an enforced dbt model contract.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: stint_id
+        data_type: varchar
+        constraints:
+          - type: not_null
+        data_tests:
+          - unique
+          - not_null
+      - name: session_key
+        data_type: bigint
+        constraints:
+          - type: not_null
+      - name: meeting_key
+        data_type: bigint
+        constraints:
+          - type: not_null
+      - name: meeting_name
+        data_type: varchar
+      - name: circuit_short_name
+        data_type: varchar
+      - name: season_year
+        data_type: integer
+      - name: session_date
+        data_type: date
+      - name: team_name
+        data_type: varchar
+        constraints:
+          - type: not_null
+      - name: team_colour_hex
+        data_type: varchar
+      - name: driver_number
+        data_type: integer
+      - name: driver_acronym
+        data_type: varchar
+      - name: stint_number
+        data_type: integer
+      - name: compound
+        data_type: varchar
+      - name: lap_start
+        data_type: integer
+      - name: lap_end
+        data_type: integer
+      - name: stint_laps
+        data_type: integer
+      - name: tyre_age_at_start
+        data_type: integer
+      - name: is_fresh_tyre
+        data_type: boolean
+      - name: clean_lap_count
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: avg_clean_lap_seconds
+        data_type: double
+      - name: fastest_stint_lap_seconds
+        data_type: double
+      - name: max_speed_trap_kph
+        data_type: integer
+
+unit_tests:
+  - name: test_pit_execution_tier_boundaries_and_ranking
+    description: >
+      Verify exact boundary thresholds for pit_execution_tier (elite <2.5s,
+      fast <3.0s, standard <4.0s, slow_or_issue >=4.0s, null -> not_applicable)
+      and ensure non-service stops receive a null stop_rank_in_race.
+    model: int_team_pit_stops
+    given:
+      - input: ref('stg_openf1__pit_stops')
+        rows:
+          - { pit_stop_id: '1-1-10', session_key: 1, meeting_key: 100, driver_number: 1, lap_number: 10, stop_duration_seconds: 2.2, lane_duration_seconds: 21.0, pit_duration_seconds: 21.0 }
+          - { pit_stop_id: '1-4-11', session_key: 1, meeting_key: 100, driver_number: 4, lap_number: 11, stop_duration_seconds: 2.5, lane_duration_seconds: 21.5, pit_duration_seconds: 21.5 }
+          - { pit_stop_id: '1-16-12', session_key: 1, meeting_key: 100, driver_number: 16, lap_number: 12, stop_duration_seconds: 3.0, lane_duration_seconds: 22.0, pit_duration_seconds: 22.0 }
+          - { pit_stop_id: '1-44-13', session_key: 1, meeting_key: 100, driver_number: 44, lap_number: 13, stop_duration_seconds: 4.0, lane_duration_seconds: 23.5, pit_duration_seconds: 23.5 }
+          - { pit_stop_id: '1-44-14', session_key: 1, meeting_key: 100, driver_number: 44, lap_number: 14, stop_duration_seconds: null, lane_duration_seconds: 18.0, pit_duration_seconds: 18.0 }
+      - input: ref('stg_openf1__drivers')
+        rows:
+          - { session_key: 1, driver_number: 1, driver_acronym: 'VER', full_name: 'Max VERSTAPPEN', team_name: 'Red Bull Racing', team_colour_hex: '#3671C6' }
+          - { session_key: 1, driver_number: 4, driver_acronym: 'NOR', full_name: 'Lando NORRIS', team_name: 'McLaren', team_colour_hex: '#FF8000' }
+          - { session_key: 1, driver_number: 16, driver_acronym: 'LEC', full_name: 'Charles LECLERC', team_name: 'Ferrari', team_colour_hex: '#E80020' }
+          - { session_key: 1, driver_number: 44, driver_acronym: 'HAM', full_name: 'Lewis HAMILTON', team_name: 'Ferrari', team_colour_hex: '#E80020' }
+      - input: ref('stg_openf1__sessions')
+        rows:
+          - { session_key: 1, meeting_key: 100, circuit_short_name: 'Suzuka', season_year: 2025, session_date: '2025-04-06' }
+      - input: ref('stg_openf1__meetings')
+        rows:
+          - { meeting_key: 100, meeting_name: 'Japanese Grand Prix' }
+    expect:
+      rows:
+        - { pit_stop_id: '1-1-10', team_name: 'Red Bull Racing', is_service_stop: true, pit_execution_tier: 'elite', stop_rank_in_race: 1 }
+        - { pit_stop_id: '1-4-11', team_name: 'McLaren', is_service_stop: true, pit_execution_tier: 'fast', stop_rank_in_race: 2 }
+        - { pit_stop_id: '1-16-12', team_name: 'Ferrari', is_service_stop: true, pit_execution_tier: 'standard', stop_rank_in_race: 3 }
+        - { pit_stop_id: '1-44-13', team_name: 'Ferrari', is_service_stop: true, pit_execution_tier: 'slow_or_issue', stop_rank_in_race: 4 }
+        - { pit_stop_id: '1-44-14', team_name: 'Ferrari', is_service_stop: false, pit_execution_tier: 'not_applicable', stop_rank_in_race: null }
+
+  - name: test_stint_pace_excludes_lap1_pitout_and_safety_car_outliers
+    description: >
+      Verify that int_stint_pace excludes Lap 1, pit-out laps, null-duration
+      laps, and Safety Car outlier laps (>1.12x fastest session lap) when
+      computing clean_lap_count and avg_clean_lap_seconds.
+    model: int_stint_pace
+    given:
+      - input: ref('stg_openf1__stints')
+        rows:
+          - { stint_id: '1-4-1', session_key: 1, meeting_key: 100, driver_number: 4, stint_number: 1, compound: 'MEDIUM', lap_start: 1, lap_end: 6, stint_laps: 6, tyre_age_at_start: 0, is_fresh_tyre: true }
+      - input: ref('stg_openf1__laps')
+        rows:
+          # Lap 1 (standing start) -> excluded
+          - { session_key: 1, driver_number: 4, lap_number: 1, lap_duration_seconds: 105.0, speed_trap_kph: 300, is_pit_out_lap: false }
+          # Lap 2 (fastest clean lap = 90.0s, 1.12x cutoff = 100.8s) -> included
+          - { session_key: 1, driver_number: 4, lap_number: 2, lap_duration_seconds: 90.0, speed_trap_kph: 325, is_pit_out_lap: false }
+          # Lap 3 (clean lap = 92.0s) -> included
+          - { session_key: 1, driver_number: 4, lap_number: 3, lap_duration_seconds: 92.0, speed_trap_kph: 328, is_pit_out_lap: false }
+          # Lap 4 (pit-out lap) -> excluded
+          - { session_key: 1, driver_number: 4, lap_number: 4, lap_duration_seconds: 95.0, speed_trap_kph: 310, is_pit_out_lap: true }
+          # Lap 5 (Safety Car lap = 120.0s > 100.8s) -> excluded
+          - { session_key: 1, driver_number: 4, lap_number: 5, lap_duration_seconds: 120.0, speed_trap_kph: 220, is_pit_out_lap: false }
+          # Lap 6 (null duration) -> excluded
+          - { session_key: 1, driver_number: 4, lap_number: 6, lap_duration_seconds: null, speed_trap_kph: null, is_pit_out_lap: false }
+      - input: ref('stg_openf1__drivers')
+        rows:
+          - { session_key: 1, driver_number: 4, driver_acronym: 'NOR', team_name: 'McLaren', team_colour_hex: '#FF8000' }
+      - input: ref('stg_openf1__sessions')
+        rows:
+          - { session_key: 1, meeting_key: 100, circuit_short_name: 'Melbourne', season_year: 2025, session_date: '2025-03-16' }
+      - input: ref('stg_openf1__meetings')
+        rows:
+          - { meeting_key: 100, meeting_name: 'Australian Grand Prix' }
+    expect:
+      rows:
+        - { stint_id: '1-4-1', team_name: 'McLaren', compound: 'MEDIUM', clean_lap_count: 2, avg_clean_lap_seconds: 91.0, fastest_stint_lap_seconds: 90.0, max_speed_trap_kph: 328 }
