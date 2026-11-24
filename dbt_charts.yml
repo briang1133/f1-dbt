@@ -1,0 +1,11 @@
+# dbt charts project configuration
+#
+# Inside a dbt project, leaving `sources:` unset lets dbt Charts automatically
+# use the connection from `dbt_project.yml` + `profiles.yml` (source: f1_dbt),
+# enabling `{{ ref('...') }}` directly inside board SQL queries.
+
+exposures:
+  path: models/dbt_charts/exposures.yml
+  owner:
+    name: f1-dbt
+    email: analytics@example.com
