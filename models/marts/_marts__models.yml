@@ -293,7 +293,7 @@ metrics:
 
 saved_queries:
   - name: constructor_championship_summary
-    description: Season-to-date constructor standings, double-points consistency, and pit crew execution.
+    description: All-seasons constructor standings, double-points consistency, and pit crew execution.
     query_params:
       metrics:
         - team_points
@@ -302,4 +302,32 @@ saved_queries:
         - avg_pit_stop_seconds
         - elite_pit_stop_rate
       group_by:
+        - Dimension('team_race__team_name')
+
+  - name: season_2026_constructor_standings
+    description: 2026 new-regulation era constructor standings and pit crew execution.
+    query_params:
+      metrics:
+        - team_points
+        - races_run
+        - points_per_race
+        - double_points_rate
+        - avg_pit_stop_seconds
+        - elite_pit_stop_rate
+      group_by:
+        - Dimension('team_race__team_name')
+      where:
+        - "{{ Dimension('team_race__season_year') }} = 2026"
+
+  - name: pit_crew_benchmarks_by_season
+    description: Season-over-season pit crew execution (2025 vs 2026) by racing team.
+    query_params:
+      metrics:
+        - total_service_pit_stops
+        - avg_pit_stop_seconds
+        - total_elite_pit_stops
+        - elite_pit_stop_rate
+        - fastest_stop_awards
+      group_by:
+        - Dimension('team_race__season_year')
         - Dimension('team_race__team_name')

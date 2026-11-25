@@ -42,6 +42,11 @@ Learning modern **dbt v2 (Fusion engine)** with **DuckDB**, **dbt Semantic Model
    # Open http://localhost:8080/f1_team_strategy/
    # Dark mode: http://localhost:8080/f1_team_strategy_dark/
    ```
+6. **Launch the local MetricFlow + Streamlit Semantic Layer Explorer**
+   ```bash
+   uv run --extra bi streamlit run bi/app.py --server.port 8501
+   # Open http://localhost:8501
+   ```
 
 ## What's Inside
 
