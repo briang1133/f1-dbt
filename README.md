@@ -1,6 +1,9 @@
 # f1-dbt
 
-Learning modern **dbt v2 (Fusion engine)** with **DuckDB**, **dbt Semantic Models**, and **dbt Charts** using public Formula 1 race data from the [OpenF1 API](https://openf1.org/), focused on analyzing F1 racing teams (pit crew execution, tire strategy, driver lineups, and championship pace).
+Learning modern **dbt v2 (Fusion engine)** with **DuckDB / MotherDuck**, **dbt Semantic Models**, **dbt Charts**, **MetricFlow**, and **Evidence.dev** using public Formula 1 race data from the [OpenF1 API](https://openf1.org/), focused on analyzing F1 racing teams (pit crew execution, tire strategy, driver lineups, and championship pace).
+
+- **Live Race Winner Reports (GitHub Pages)**: https://briang1133.github.io/f1-dbt/
+- **Featured 2026 Las Vegas GP Winner Breakdown**: https://briang1133.github.io/f1-dbt/races/las-vegas-2026
 
 ## Prerequisites
 
