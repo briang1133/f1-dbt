@@ -25,6 +25,8 @@ concurrency:
 
 permissions:
   contents: read
+  pages: write
+  id-token: write
 
 env:
   DBT_ENGINE_NO_WARN_SEMANTIC_MANIFEST_VALIDATION: "1"
@@ -33,6 +35,8 @@ jobs:
   deploy-prod:
     name: Deploy to MotherDuck Prod & Build Evidence Reports
     runs-on: ubuntu-latest
+    outputs:
+      md_configured: ${{ steps.md_check.outputs.configured }}
 
     steps:
       - name: Checkout repository
@@ -137,7 +141,7 @@ jobs:
         if: steps.md_check.outputs.configured == 'true'
         run: npm --prefix reports ci
 
-      - name: Extract MotherDuck prod sources & build Evidence.dev static site
+      - name: Extract MotherDuck prod sources & build Evidence.dev for GitHub Pages
         if: steps.md_check.outputs.configured == 'true'
         env:
           MOTHERDUCK_TOKEN: ${{ secrets.MOTHERDUCK_TOKEN }}
@@ -148,8 +152,14 @@ jobs:
           options:
             filename: md:f1_prod
           EOF
+          cat >> reports/evidence.config.yaml <<'EOF'
+
+          deployment:
+            basePath: /f1-dbt
+          EOF
           npm --prefix reports run sources
           npm --prefix reports run build
+          touch reports/build/.nojekyll
 
       - name: Upload Evidence.dev static site artifact
         if: steps.md_check.outputs.configured == 'true'
@@ -160,13 +170,31 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Write CD deployment summary
+      - name: Upload GitHub Pages artifact
         if: steps.md_check.outputs.configured == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: reports/build
+
+  deploy-pages:
+    name: Publish Race Winner Reports to GitHub Pages
+    needs: deploy-prod
+    if: needs.deploy-prod.outputs.md_configured == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Write CD deployment summary
         run: |
           {
-            echo "### ✅ Deployed f1-dbt Production Pipeline"
+            echo "### ✅ Deployed f1-dbt Production Pipeline & GitHub Pages"
             echo ""
+            echo "- **Live Race Reports**: ${{ steps.deployment.outputs.page_url }}"
+            echo "- **2026 Las Vegas Breakdown**: ${{ steps.deployment.outputs.page_url }}races/las-vegas-2026"
             echo "- **Warehouse**: MotherDuck \`md:f1_prod\` (\`analytics\` schema)"
-            echo "- **Seasons**: \`${{ inputs.years || '2025 2026' }}\`"
-            echo "- **Artifacts**: \`prod-manifest\` (for PR Slim CI) + \`evidence-race-reports\` (static site)"
           } >> "$GITHUB_STEP_SUMMARY"

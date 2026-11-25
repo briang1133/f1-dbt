@@ -28,7 +28,7 @@ where session_key = 11420 and is_winner = true
   <BigValue data={featured_vegas} value=s1_s2_advantage_s fmt="+0.000's';-0.000's'" title="S1 + S2 Edge vs P2 / Lap" />
 </Grid>
 
-👉 **[Read the full 2026 Las Vegas Race Winner Breakdown →](/races/las-vegas-2026)** · **[Compare with 2025 Las Vegas GP →](/races/9858)**
+👉 **[Read the full 2026 Las Vegas Race Winner Breakdown →](./races/las-vegas-2026)** · **[Compare with 2025 Las Vegas GP →](./races/9858)**
 
 ---
 
@@ -36,7 +36,7 @@ where session_key = 11420 and is_winner = true
 
 ```sql all_races
 select
-    '/races/' || cast(session_key as varchar) as report_url,
+    './races/' || cast(session_key as varchar) as report_url,
     season_year,
     race_date,
     meeting_name,

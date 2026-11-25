@@ -309,4 +309,4 @@ order by finish_position asc nulls last
     <Column id=tyre_strategy title="Strategy" />
 </DataTable>
 
-[← Back to All Race Reports](/)
+[← Back to All Race Reports](../)
