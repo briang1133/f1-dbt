@@ -42,21 +42,28 @@ Learning modern **dbt v2 (Fusion engine)** with **DuckDB**, **dbt Semantic Model
    # Open http://localhost:8080/f1_team_strategy/
    # Dark mode: http://localhost:8080/f1_team_strategy_dark/
    ```
-6. **Launch Evidence.dev Per-Race Winner Reports**
+6. **Launch the local MetricFlow + Streamlit Semantic Layer Explorer**
+   ```bash
+   uv run --extra bi streamlit run bi/app.py --server.port 8501
+   # Open http://localhost:8501
+   ```
+7. **Launch Evidence.dev Per-Race Winner Reports**
    ```bash
    npm --prefix reports install
    npm --prefix reports run sources
    npm --prefix reports run dev
-   # Open http://localhost:3000/races/las-vegas-2026
+   # Open http://127.0.0.1:3000/races/las-vegas-2026
    ```
 
 ## What's Inside
 
 - **Staging (`models/staging/openf1/`)**: 7 OpenF1 views with `data_tests`, `event_time` configs, and Fusion static SQL analysis + queryable Parquet column lineage (`target/info_schema/v1/`).
 - **Intermediate (`models/intermediate/`)**: `int_team_pit_stops` and `int_stint_pace` protected by **enforced Model Contracts** and **native YAML Unit Tests**.
-- **Marts (`models/marts/`)**: `dim_teams`, `fct_team_race_performance`, `metricflow_time_spine`, and microbatch incremental `fct_race_laps`, plus **model-embedded dbt v2 Semantic Models, 11 Metrics (simple, ratio, derived), and Saved Queries**.
+- **Marts (`models/marts/`)**: `dim_teams`, `fct_team_race_performance`, `fct_driver_race_breakdown`, `metricflow_time_spine`, and microbatch incremental `fct_race_laps`, plus **model-embedded dbt v2 Semantic Models, 11 Metrics (simple, ratio, derived), and Saved Queries**.
 - **Snapshots (`snapshots/snp_driver_team_rosters.yml`)**: YAML-defined Type-2 SCD snapshot tracking driver-to-team swaps.
 - **dbt Charts (`charts/`)**: Declarative YAML dashboards (`f1_team_strategy.yml` + dark `neon` variant) wired into the dbt DAG via `dct exposures` (`models/dbt_charts/exposures.yml`).
+- **MetricFlow BI Explorer (`bi/`)**: Local open-source MetricFlow + Streamlit app with no-code dimension filters and saved-query YAML export.
+- **Evidence.dev Race Reports (`reports/`)**: Open-source Evidence v40 + DuckDB reports with the flagship 2026 Las Vegas Winner Breakdown and a reusable `[session_key]` template covering all 45 races.
 
 ## Workflow & CI/CD
 
