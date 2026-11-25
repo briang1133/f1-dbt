@@ -24,3 +24,26 @@ reports/.evidence/
 reports/build/
 dbt_internal_packages/
 renders/
+
+# Secrets, environment files & local credentials
+.env
+.env.*
+!.env.example
+*.env
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+.secrets
+*.secret
+*.secrets
+secrets.yml
+secrets.yaml
+secrets.json
+*_token*
+*.token
+*credentials*.json
+*.credentials
+profiles.local.yml
