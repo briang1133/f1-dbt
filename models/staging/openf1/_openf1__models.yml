@@ -83,7 +83,7 @@ models:
                 where: "stop_duration_seconds is not null"
 
   - name: stg_openf1__laps
-    description: Lap-by-lap timing, sector durations, speed traps, and pit-out flags.
+    description: Lap-by-lap timing, sector durations, speed traps (I1/I2/ST), mini-sector counts, and pit-out flags.
     config:
       event_time: lap_started_at
     columns:
@@ -93,6 +93,18 @@ models:
           - unique
           - not_null
       - name: lap_number
+        data_tests:
+          - not_null
+      - name: purple_mini_sectors
+        description: Count of session-best (purple, code 2051) mini-sectors across Sectors 1–3.
+        data_tests:
+          - not_null
+      - name: green_mini_sectors
+        description: Count of personal-best (green, code 2049) mini-sectors across Sectors 1–3.
+        data_tests:
+          - not_null
+      - name: yellow_mini_sectors
+        description: Count of slower-than-personal-best (yellow, code 2048) mini-sectors across Sectors 1–3.
         data_tests:
           - not_null
 

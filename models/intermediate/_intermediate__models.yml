@@ -137,6 +137,218 @@ models:
       - name: max_speed_trap_kph
         data_type: integer
 
+  - name: int_stint_degradation
+    description: >
+      Fuel-corrected tire degradation analysis per driver stint, normalizing lap
+      times to empty-fuel equivalent using circuit fuel-burn sensitivity and
+      fitting linear degradation slopes (seconds lost per lap of tire age) while
+      excluding Lap 1, pit in-laps, pit out-laps, and Safety Car/VSC outliers.
+      Protected by an enforced dbt model contract.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: stint_id
+        data_type: varchar
+        constraints:
+          - type: not_null
+        data_tests:
+          - unique
+          - not_null
+      - name: session_key
+        data_type: bigint
+        constraints:
+          - type: not_null
+      - name: meeting_key
+        data_type: bigint
+        constraints:
+          - type: not_null
+      - name: meeting_name
+        data_type: varchar
+      - name: circuit_short_name
+        data_type: varchar
+      - name: circuit_archetype
+        data_type: varchar
+        constraints:
+          - type: not_null
+      - name: season_year
+        data_type: integer
+      - name: session_date
+        data_type: date
+      - name: team_name
+        data_type: varchar
+        constraints:
+          - type: not_null
+      - name: team_colour_hex
+        data_type: varchar
+      - name: driver_number
+        data_type: integer
+      - name: driver_acronym
+        data_type: varchar
+      - name: stint_number
+        data_type: integer
+      - name: compound
+        data_type: varchar
+      - name: pirelli_c_spec
+        data_type: varchar
+      - name: lap_start
+        data_type: integer
+      - name: lap_end
+        data_type: integer
+      - name: stint_laps
+        data_type: integer
+      - name: tyre_age_at_start
+        data_type: integer
+      - name: is_fresh_tyre
+        data_type: boolean
+      - name: clean_lap_count
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: avg_clean_lap_seconds
+        data_type: double
+      - name: avg_fuel_corrected_lap_seconds
+        data_type: double
+      - name: best_fuel_corrected_lap_seconds
+        data_type: double
+      - name: deg_slope_s_per_lap
+        data_type: double
+      - name: early_stint_fc_lap_s
+        data_type: double
+      - name: late_stint_fc_lap_s
+        data_type: double
+      - name: stint_pace_dropoff_s
+        data_type: double
+      - name: lap_time_iqr_seconds
+        data_type: double
+      - name: purple_mini_sector_count
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: deg_profile_tier
+        data_type: varchar
+        constraints:
+          - type: not_null
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['low_deg', 'moderate_deg', 'high_deg', 'insufficient_laps']
+
+  - name: int_teammate_benchmark
+    description: >
+      Car-vs-driver separation per driver per Grand Prix, isolating chassis
+      potential (faster teammate's fuel-corrected pace vs. session benchmark)
+      from driver deficit (delta vs. faster teammate overall and by sector),
+      speed-trap aero profile (I1/I2/ST), mini-sector dominance, and pit
+      in-lap/out-lap/transit execution. Protected by an enforced model contract.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: driver_race_id
+        data_type: varchar
+        constraints:
+          - type: not_null
+        data_tests:
+          - unique
+          - not_null
+      - name: session_key
+        data_type: bigint
+        constraints:
+          - type: not_null
+      - name: meeting_key
+        data_type: bigint
+        constraints:
+          - type: not_null
+      - name: meeting_name
+        data_type: varchar
+      - name: circuit_short_name
+        data_type: varchar
+      - name: season_year
+        data_type: integer
+      - name: race_date
+        data_type: date
+        constraints:
+          - type: not_null
+      - name: team_name
+        data_type: varchar
+        constraints:
+          - type: not_null
+      - name: team_colour_hex
+        data_type: varchar
+      - name: driver_number
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: driver_acronym
+        data_type: varchar
+      - name: driver_full_name
+        data_type: varchar
+      - name: finish_position
+        data_type: integer
+      - name: clean_lap_count
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: avg_clean_lap_seconds
+        data_type: double
+      - name: avg_fuel_corrected_lap_seconds
+        data_type: double
+      - name: median_fuel_corrected_lap_seconds
+        data_type: double
+      - name: lap_time_iqr_seconds
+        data_type: double
+      - name: avg_sector_1_seconds
+        data_type: double
+      - name: avg_sector_2_seconds
+        data_type: double
+      - name: avg_sector_3_seconds
+        data_type: double
+      - name: avg_i1_speed_kph
+        data_type: double
+      - name: avg_i2_speed_kph
+        data_type: double
+      - name: avg_speed_trap_kph
+        data_type: double
+      - name: max_speed_trap_kph
+        data_type: integer
+      - name: purple_mini_sector_count
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: green_mini_sector_count
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: avg_pit_transit_seconds
+        data_type: double
+      - name: avg_in_lap_delta_s
+        data_type: double
+      - name: avg_out_lap_delta_s
+        data_type: double
+      - name: teammates_with_pace_count
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: is_faster_teammate
+        data_type: boolean
+        constraints:
+          - type: not_null
+      - name: team_best_fc_lap_seconds
+        data_type: double
+      - name: car_pace_deficit_s
+        data_type: double
+      - name: car_pace_deficit_pct
+        data_type: double
+      - name: driver_delta_vs_teammate_s
+        data_type: double
+      - name: s1_delta_vs_teammate_s
+        data_type: double
+      - name: s2_delta_vs_teammate_s
+        data_type: double
+      - name: s3_delta_vs_teammate_s
+        data_type: double
+
 unit_tests:
   - name: test_pit_execution_tier_boundaries_and_ranking
     description: >
@@ -208,3 +420,99 @@ unit_tests:
     expect:
       rows:
         - { stint_id: '1-4-1', team_name: 'McLaren', compound: 'MEDIUM', clean_lap_count: 2, avg_clean_lap_seconds: 91.0, fastest_stint_lap_seconds: 90.0, max_speed_trap_kph: 328 }
+
+  - name: test_stint_degradation_fuel_correction_and_inlap_exclusion
+    description: >
+      Verify fuel-corrected tire degradation slope calculation, Pirelli C-spec
+      mapping, and exclusion of pit in-laps so pit-entry deceleration does not
+      bias deg_slope_s_per_lap.
+    model: int_stint_degradation
+    given:
+      - input: ref('stg_openf1__stints')
+        rows:
+          - { stint_id: '1-1-1', session_key: 1, meeting_key: 100, driver_number: 1, stint_number: 1, compound: 'HARD', lap_start: 1, lap_end: 7, stint_laps: 7, tyre_age_at_start: 0, is_fresh_tyre: true }
+      - input: ref('stg_openf1__laps')
+        rows:
+          # Max session lap = 7, fuel_effect = 0.05s/lap.
+          # Fuel-corrected target = raw - (7 - lap) * 0.05.
+          # Construct clean laps 2..6 with exact +0.10s/lap true tire deg (fuel-corrected = 89.80, 89.90, 90.00, 90.10, 90.20):
+          # Lap 1 excluded (standing start)
+          - { session_key: 1, driver_number: 1, lap_number: 1, lap_duration_seconds: 96.0, is_pit_out_lap: false, purple_mini_sectors: 0 }
+          - { session_key: 1, driver_number: 1, lap_number: 2, lap_duration_seconds: 90.05, is_pit_out_lap: false, purple_mini_sectors: 2 }
+          - { session_key: 1, driver_number: 1, lap_number: 3, lap_duration_seconds: 90.10, is_pit_out_lap: false, purple_mini_sectors: 1 }
+          - { session_key: 1, driver_number: 1, lap_number: 4, lap_duration_seconds: 90.15, is_pit_out_lap: false, purple_mini_sectors: 0 }
+          - { session_key: 1, driver_number: 1, lap_number: 5, lap_duration_seconds: 90.20, is_pit_out_lap: false, purple_mini_sectors: 0 }
+          - { session_key: 1, driver_number: 1, lap_number: 6, lap_duration_seconds: 90.25, is_pit_out_lap: false, purple_mini_sectors: 1 }
+          # Lap 7 is a pit in-lap (slow) -> must be excluded from deg slope
+          - { session_key: 1, driver_number: 1, lap_number: 7, lap_duration_seconds: 98.00, is_pit_out_lap: false, purple_mini_sectors: 0 }
+      - input: ref('stg_openf1__pit_stops')
+        rows:
+          - { session_key: 1, driver_number: 1, lap_number: 7 }
+      - input: ref('stg_openf1__drivers')
+        rows:
+          - { session_key: 1, driver_number: 1, driver_acronym: 'VER', team_name: 'Red Bull Racing', team_colour_hex: '#3671C6' }
+      - input: ref('stg_openf1__sessions')
+        rows:
+          - { session_key: 1, meeting_key: 100, circuit_short_name: 'Suzuka', season_year: 2026, session_date: '2026-03-29' }
+      - input: ref('stg_openf1__meetings')
+        rows:
+          - { meeting_key: 100, meeting_name: 'Japanese Grand Prix' }
+      - input: ref('circuit_profiles')
+        rows:
+          - { circuit_short_name: 'Suzuka', circuit_archetype: 'high_speed_aero', pirelli_hard_spec: 'C1', pirelli_medium_spec: 'C2', pirelli_soft_spec: 'C3', fuel_effect_s_per_lap: 0.05 }
+    expect:
+      rows:
+        - { stint_id: '1-1-1', circuit_archetype: 'high_speed_aero', pirelli_c_spec: 'C1', clean_lap_count: 5, avg_fuel_corrected_lap_seconds: 90.0, deg_slope_s_per_lap: 0.1, purple_mini_sector_count: 4, deg_profile_tier: 'high_deg' }
+
+  - name: test_teammate_benchmark_car_vs_driver_separation
+    description: >
+      Verify car pace deficit uses the faster teammate as chassis potential while
+      isolating the slower teammate's execution gap in driver_delta_vs_teammate_s.
+    model: int_teammate_benchmark
+    given:
+      - input: ref('stg_openf1__results')
+        rows:
+          - { result_id: '1-4', session_key: 1, meeting_key: 100, driver_number: 4, finish_position: 1 }
+          - { result_id: '1-81', session_key: 1, meeting_key: 100, driver_number: 81, finish_position: 2 }
+          - { result_id: '1-16', session_key: 1, meeting_key: 100, driver_number: 16, finish_position: 3 }
+      - input: ref('stg_openf1__drivers')
+        rows:
+          - { session_key: 1, driver_number: 4, driver_acronym: 'NOR', full_name: 'Lando NORRIS', team_name: 'McLaren', team_colour_hex: '#FF8000' }
+          - { session_key: 1, driver_number: 81, driver_acronym: 'PIA', full_name: 'Oscar PIASTRI', team_name: 'McLaren', team_colour_hex: '#FF8000' }
+          - { session_key: 1, driver_number: 16, driver_acronym: 'LEC', full_name: 'Charles LECLERC', team_name: 'Ferrari', team_colour_hex: '#E80020' }
+      - input: ref('stg_openf1__sessions')
+        rows:
+          - { session_key: 1, meeting_key: 100, circuit_short_name: 'Monza', season_year: 2026, session_date: '2026-09-06' }
+      - input: ref('stg_openf1__meetings')
+        rows:
+          - { meeting_key: 100, meeting_name: 'Italian Grand Prix' }
+      - input: ref('circuit_profiles')
+        rows:
+          - { circuit_short_name: 'Monza', fuel_effect_s_per_lap: 0.0 }
+      - input: ref('int_team_pit_stops')
+        rows: []
+      - input: ref('stg_openf1__laps')
+        rows:
+          # NOR: 5 clean laps at 80.0s (session fastest car)
+          - { session_key: 1, driver_number: 4, lap_number: 2, lap_duration_seconds: 80.0, sector_1_seconds: 26.0, sector_2_seconds: 27.0, sector_3_seconds: 27.0, i1_speed_kph: 320, i2_speed_kph: 330, speed_trap_kph: 340, is_pit_out_lap: false, purple_mini_sectors: 1, green_mini_sectors: 2 }
+          - { session_key: 1, driver_number: 4, lap_number: 3, lap_duration_seconds: 80.0, sector_1_seconds: 26.0, sector_2_seconds: 27.0, sector_3_seconds: 27.0, i1_speed_kph: 320, i2_speed_kph: 330, speed_trap_kph: 340, is_pit_out_lap: false, purple_mini_sectors: 1, green_mini_sectors: 2 }
+          - { session_key: 1, driver_number: 4, lap_number: 4, lap_duration_seconds: 80.0, sector_1_seconds: 26.0, sector_2_seconds: 27.0, sector_3_seconds: 27.0, i1_speed_kph: 320, i2_speed_kph: 330, speed_trap_kph: 340, is_pit_out_lap: false, purple_mini_sectors: 1, green_mini_sectors: 2 }
+          - { session_key: 1, driver_number: 4, lap_number: 5, lap_duration_seconds: 80.0, sector_1_seconds: 26.0, sector_2_seconds: 27.0, sector_3_seconds: 27.0, i1_speed_kph: 320, i2_speed_kph: 330, speed_trap_kph: 340, is_pit_out_lap: false, purple_mini_sectors: 1, green_mini_sectors: 2 }
+          - { session_key: 1, driver_number: 4, lap_number: 6, lap_duration_seconds: 80.0, sector_1_seconds: 26.0, sector_2_seconds: 27.0, sector_3_seconds: 27.0, i1_speed_kph: 320, i2_speed_kph: 330, speed_trap_kph: 340, is_pit_out_lap: false, purple_mini_sectors: 1, green_mini_sectors: 2 }
+          # PIA: 5 clean laps at 80.3s (+0.3s behind teammate in S2)
+          - { session_key: 1, driver_number: 81, lap_number: 2, lap_duration_seconds: 80.3, sector_1_seconds: 26.0, sector_2_seconds: 27.3, sector_3_seconds: 27.0, i1_speed_kph: 320, i2_speed_kph: 330, speed_trap_kph: 340, is_pit_out_lap: false, purple_mini_sectors: 0, green_mini_sectors: 1 }
+          - { session_key: 1, driver_number: 81, lap_number: 3, lap_duration_seconds: 80.3, sector_1_seconds: 26.0, sector_2_seconds: 27.3, sector_3_seconds: 27.0, i1_speed_kph: 320, i2_speed_kph: 330, speed_trap_kph: 340, is_pit_out_lap: false, purple_mini_sectors: 0, green_mini_sectors: 1 }
+          - { session_key: 1, driver_number: 81, lap_number: 4, lap_duration_seconds: 80.3, sector_1_seconds: 26.0, sector_2_seconds: 27.3, sector_3_seconds: 27.0, i1_speed_kph: 320, i2_speed_kph: 330, speed_trap_kph: 340, is_pit_out_lap: false, purple_mini_sectors: 0, green_mini_sectors: 1 }
+          - { session_key: 1, driver_number: 81, lap_number: 5, lap_duration_seconds: 80.3, sector_1_seconds: 26.0, sector_2_seconds: 27.3, sector_3_seconds: 27.0, i1_speed_kph: 320, i2_speed_kph: 330, speed_trap_kph: 340, is_pit_out_lap: false, purple_mini_sectors: 0, green_mini_sectors: 1 }
+          - { session_key: 1, driver_number: 81, lap_number: 6, lap_duration_seconds: 80.3, sector_1_seconds: 26.0, sector_2_seconds: 27.3, sector_3_seconds: 27.0, i1_speed_kph: 320, i2_speed_kph: 330, speed_trap_kph: 340, is_pit_out_lap: false, purple_mini_sectors: 0, green_mini_sectors: 1 }
+          # LEC (Ferrari): 5 clean laps at 80.8s (+0.8s car pace deficit = +1.0%)
+          - { session_key: 1, driver_number: 16, lap_number: 2, lap_duration_seconds: 80.8, sector_1_seconds: 26.4, sector_2_seconds: 27.2, sector_3_seconds: 27.2, i1_speed_kph: 318, i2_speed_kph: 328, speed_trap_kph: 338, is_pit_out_lap: false, purple_mini_sectors: 0, green_mini_sectors: 0 }
+          - { session_key: 1, driver_number: 16, lap_number: 3, lap_duration_seconds: 80.8, sector_1_seconds: 26.4, sector_2_seconds: 27.2, sector_3_seconds: 27.2, i1_speed_kph: 318, i2_speed_kph: 328, speed_trap_kph: 338, is_pit_out_lap: false, purple_mini_sectors: 0, green_mini_sectors: 0 }
+          - { session_key: 1, driver_number: 16, lap_number: 4, lap_duration_seconds: 80.8, sector_1_seconds: 26.4, sector_2_seconds: 27.2, sector_3_seconds: 27.2, i1_speed_kph: 318, i2_speed_kph: 328, speed_trap_kph: 338, is_pit_out_lap: false, purple_mini_sectors: 0, green_mini_sectors: 0 }
+          - { session_key: 1, driver_number: 16, lap_number: 5, lap_duration_seconds: 80.8, sector_1_seconds: 26.4, sector_2_seconds: 27.2, sector_3_seconds: 27.2, i1_speed_kph: 318, i2_speed_kph: 328, speed_trap_kph: 338, is_pit_out_lap: false, purple_mini_sectors: 0, green_mini_sectors: 0 }
+          - { session_key: 1, driver_number: 16, lap_number: 6, lap_duration_seconds: 80.8, sector_1_seconds: 26.4, sector_2_seconds: 27.2, sector_3_seconds: 27.2, i1_speed_kph: 318, i2_speed_kph: 328, speed_trap_kph: 338, is_pit_out_lap: false, purple_mini_sectors: 0, green_mini_sectors: 0 }
+    expect:
+      rows:
+        - { driver_race_id: '1-4', is_faster_teammate: true, car_pace_deficit_s: 0.0, car_pace_deficit_pct: 0.0, driver_delta_vs_teammate_s: 0.0, s2_delta_vs_teammate_s: 0.0 }
+        - { driver_race_id: '1-81', is_faster_teammate: false, car_pace_deficit_s: 0.0, car_pace_deficit_pct: 0.0, driver_delta_vs_teammate_s: 0.3, s2_delta_vs_teammate_s: 0.3 }
+        - { driver_race_id: '1-16', is_faster_teammate: true, car_pace_deficit_s: 0.8, car_pace_deficit_pct: 0.01, driver_delta_vs_teammate_s: 0.0, s2_delta_vs_teammate_s: 0.0 }

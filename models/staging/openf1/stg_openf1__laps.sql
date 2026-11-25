@@ -2,6 +2,15 @@ with source as (
     select * from {{ source('openf1', 'laps') }}
 ),
 
+with_segment_strings as (
+    select
+        *,
+        coalesce(cast(segments_sector_1 as varchar), '')
+            || ',' || coalesce(cast(segments_sector_2 as varchar), '')
+            || ',' || coalesce(cast(segments_sector_3 as varchar), '') as all_segments_raw
+    from source
+),
+
 renamed as (
     select
         cast(session_key as varchar)
@@ -20,8 +29,21 @@ renamed as (
         cast(i1_speed as integer) as i1_speed_kph,
         cast(i2_speed as integer) as i2_speed_kph,
         coalesce(cast(is_pit_out_lap as boolean), false) as is_pit_out_lap,
+        -- OpenF1 mini-sector codes: 2051 = session best (purple), 2049 = personal best (green), 2048 = slower (yellow)
+        cast(
+            (length(all_segments_raw) - length(replace(all_segments_raw, '2051', ''))) / 4
+            as integer
+        ) as purple_mini_sectors,
+        cast(
+            (length(all_segments_raw) - length(replace(all_segments_raw, '2049', ''))) / 4
+            as integer
+        ) as green_mini_sectors,
+        cast(
+            (length(all_segments_raw) - length(replace(all_segments_raw, '2048', ''))) / 4
+            as integer
+        ) as yellow_mini_sectors,
         _ingested_at
-    from source
+    from with_segment_strings
 )
 
 select * from renamed

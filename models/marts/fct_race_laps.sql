@@ -5,6 +5,7 @@
         event_time='lap_started_at',
         batch_size='month',
         begin='2025-03-01',
+        on_schema_change='append_new_columns',
     )
 }}
 
@@ -46,7 +47,10 @@ final as (
         laps.sector_1_seconds,
         laps.sector_2_seconds,
         laps.sector_3_seconds,
+        laps.i1_speed_kph,
+        laps.i2_speed_kph,
         laps.speed_trap_kph,
+        laps.purple_mini_sectors,
         laps.is_pit_out_lap
     from laps
     inner join drivers

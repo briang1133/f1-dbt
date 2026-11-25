@@ -1,0 +1,27 @@
+circuit_short_name,circuit_archetype,downforce_level,tyre_deg_severity,overtaking_difficulty,pirelli_hard_spec,pirelli_medium_spec,pirelli_soft_spec,fuel_effect_s_per_lap
+Austin,balanced_all_round,medium_high,high,low,C2,C3,C4,0.058
+Baku,low_drag_power,low,low,low,C3,C4,C5,0.062
+Catalunya,high_speed_aero,high,high,medium,C1,C2,C3,0.055
+Hungaroring,high_downforce_street,high,medium,high,C3,C4,C5,0.050
+Imola,balanced_all_round,medium_high,medium,high,C3,C4,C5,0.052
+Interlagos,balanced_all_round,medium_high,medium,low,C2,C3,C4,0.048
+Jeddah,low_drag_power,medium_low,low,medium,C3,C4,C5,0.060
+Kuala Lumpur,high_speed_aero,medium_high,high,low,C1,C2,C3,0.058
+Las Vegas,low_drag_power,low,low,low,C3,C4,C5,0.062
+Lusail,high_speed_aero,high,high,medium,C1,C2,C3,0.056
+Madring,high_downforce_street,medium_high,medium,medium,C3,C4,C5,0.055
+Melbourne,balanced_all_round,medium_high,medium,medium,C3,C4,C5,0.055
+Mexico City,high_downforce_street,high,low,medium,C3,C4,C5,0.048
+Miami,balanced_all_round,medium,medium,low,C3,C4,C5,0.056
+Monte Carlo,high_downforce_street,high,low,high,C3,C4,C5,0.045
+Montreal,rear_limited_traction,medium_low,medium,low,C3,C4,C5,0.050
+Monza,low_drag_power,low,low,low,C3,C4,C5,0.054
+Sakhir,rear_limited_traction,medium_high,high,low,C1,C2,C3,0.058
+Shanghai,balanced_all_round,medium,high,low,C2,C3,C4,0.058
+Silverstone,high_speed_aero,medium_high,high,low,C1,C2,C3,0.060
+Singapore,high_downforce_street,high,medium,high,C3,C4,C5,0.054
+Spa-Francorchamps,high_speed_aero,medium_low,medium,low,C2,C3,C4,0.068
+Spielberg,rear_limited_traction,medium,high,low,C3,C4,C5,0.046
+Suzuka,high_speed_aero,high,high,medium,C1,C2,C3,0.058
+Yas Marina Circuit,rear_limited_traction,medium,medium,medium,C3,C4,C5,0.055
+Zandvoort,high_speed_aero,high,high,high,C1,C2,C3,0.048
