@@ -42,6 +42,13 @@ Learning modern **dbt v2 (Fusion engine)** with **DuckDB**, **dbt Semantic Model
    # Open http://localhost:8080/f1_team_strategy/
    # Dark mode: http://localhost:8080/f1_team_strategy_dark/
    ```
+6. **Launch Evidence.dev Per-Race Winner Reports**
+   ```bash
+   npm --prefix reports install
+   npm --prefix reports run sources
+   npm --prefix reports run dev
+   # Open http://localhost:3000/races/las-vegas-2026
+   ```
 
 ## What's Inside
 

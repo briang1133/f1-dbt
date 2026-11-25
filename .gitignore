@@ -17,5 +17,10 @@ logs/
 
 # OS / Editor
 .DS_Store
+
+# Evidence.dev build & dependencies
+reports/node_modules/
+reports/.evidence/
+reports/build/
 dbt_internal_packages/
 renders/

@@ -265,6 +265,144 @@ models:
         data_tests:
           - not_null
 
+  - name: fct_driver_race_breakdown
+    description: >
+      One row per driver per Grand Prix combining finishing results, clean-air
+      pace, sector averages (S1/S2/S3), speed trap, pit stop execution, tire
+      strategy, and winner-vs-runner-up deltas to explain why each race was won.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: driver_race_id
+        description: Primary key (`session_key-driver_number`).
+        data_type: varchar
+        constraints:
+          - type: not_null
+        data_tests:
+          - unique
+          - not_null
+      - name: session_key
+        data_type: bigint
+        constraints:
+          - type: not_null
+      - name: meeting_key
+        data_type: bigint
+        constraints:
+          - type: not_null
+      - name: meeting_name
+        data_type: varchar
+      - name: circuit_short_name
+        data_type: varchar
+      - name: country_name
+        data_type: varchar
+      - name: season_year
+        data_type: integer
+      - name: race_date
+        data_type: date
+        constraints:
+          - type: not_null
+      - name: driver_number
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: driver_acronym
+        data_type: varchar
+      - name: driver_full_name
+        data_type: varchar
+      - name: team_name
+        data_type: varchar
+        constraints:
+          - type: not_null
+      - name: team_colour_hex
+        data_type: varchar
+      - name: finish_position
+        data_type: integer
+      - name: is_winner
+        data_type: boolean
+        constraints:
+          - type: not_null
+      - name: laps_completed
+        data_type: integer
+      - name: points_scored
+        data_type: double
+        constraints:
+          - type: not_null
+      - name: is_dnf
+        data_type: boolean
+        constraints:
+          - type: not_null
+      - name: is_dns
+        data_type: boolean
+        constraints:
+          - type: not_null
+      - name: is_dsq
+        data_type: boolean
+        constraints:
+          - type: not_null
+      - name: gap_to_leader_seconds
+        data_type: double
+      - name: winning_margin_seconds
+        data_type: double
+      - name: clean_lap_count
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: avg_clean_lap_seconds
+        data_type: double
+      - name: fastest_lap_seconds
+        data_type: double
+      - name: avg_sector_1_seconds
+        data_type: double
+      - name: avg_sector_2_seconds
+        data_type: double
+      - name: avg_sector_3_seconds
+        data_type: double
+      - name: max_speed_trap_kph
+        data_type: integer
+      - name: pit_stop_count
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: service_pit_stops
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: avg_stop_duration_seconds
+        data_type: double
+      - name: fastest_stop_duration_seconds
+        data_type: double
+      - name: total_pit_lane_seconds
+        data_type: double
+      - name: stint_count
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: tyre_strategy
+        data_type: varchar
+      - name: compounds_used
+        data_type: varchar
+      - name: delta_vs_winner_avg_lap_s
+        data_type: double
+      - name: delta_vs_winner_s1_s
+        data_type: double
+      - name: delta_vs_winner_s2_s
+        data_type: double
+      - name: delta_vs_winner_s3_s
+        data_type: double
+      - name: delta_vs_winner_pit_lane_s
+        data_type: double
+      - name: winner_vs_p2_avg_lap_s
+        data_type: double
+      - name: winner_vs_p2_s1_s
+        data_type: double
+      - name: winner_vs_p2_s2_s
+        data_type: double
+      - name: winner_vs_p2_s3_s
+        data_type: double
+      - name: winner_vs_p2_pit_lane_s
+        data_type: double
+
 metrics:
   - name: elite_pit_stop_rate
     description: Share of stationary service pit stops completed in under 2.5 seconds.

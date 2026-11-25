@@ -1,0 +1,20 @@
+{
+  "name": "f1-dbt-reports",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "evidence dev --host 127.0.0.1 --port 3000",
+    "sources": "evidence sources",
+    "build": "evidence build",
+    "preview": "evidence preview"
+  },
+  "dependencies": {
+    "@evidence-dev/core-components": "^5.4.2",
+    "@evidence-dev/duckdb": "^2.0.1",
+    "@evidence-dev/evidence": "^40.1.8"
+  },
+  "devDependencies": {
+    "typescript": "5.4.2"
+  }
+}
