@@ -1,0 +1,28 @@
+title = "f1-dbt gitleaks configuration"
+
+[extend]
+# Inherit all built-in gitleaks secret detectors (AWS, GCP, GitHub, private keys, JWTs, etc.)
+useDefault = true
+
+[[rules]]
+id = "motherduck-token-assignment"
+description = "Hardcoded MotherDuck token assignment"
+regex = '''(?i)motherduck_token\s*[:=]\s*['"]?[A-Za-z0-9._-]{20,}['"]?'''
+tags = ["secret", "motherduck"]
+
+[[rules]]
+id = "generic-jwt-token"
+description = "Hardcoded JSON Web Token (including MotherDuck service/access tokens)"
+regex = '''\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\b'''
+tags = ["secret", "jwt"]
+
+[allowlist]
+description = "Ignore dependency lockfiles and env-var / GitHub Secrets templates"
+paths = [
+  '''^uv\.lock$''',
+  '''^reports/package-lock\.json$''',
+]
+regexes = [
+  '''env_var\(['"]MOTHERDUCK_TOKEN['"]\)''',
+  '''\$\{\{\s*secrets\.[A-Z0-9_]+\s*\}\}''',
+]
