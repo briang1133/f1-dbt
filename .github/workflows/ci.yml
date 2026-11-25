@@ -3,20 +3,22 @@ name: dbt CI
 on:
   pull_request:
     branches: [main]
-  push:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
   group: dbt-ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  actions: read
+
 env:
   DBT_ENGINE_NO_WARN_SEMANTIC_MANIFEST_VALIDATION: "1"
 
 jobs:
-  dbt-build-and-test:
-    name: dbt v2 (DuckDB) Build, Test & Charts
+  dbt-slim-ci:
+    name: dbt v2 Slim CI (DuckDB + Charts)
     runs-on: ubuntu-latest
 
     steps:
@@ -51,6 +53,29 @@ jobs:
       - name: Ingest sample OpenF1 race into DuckDB
         run: uv run python scripts/ingest_openf1.py --year 2025 --limit 1
 
+      - name: Download latest production manifest for Slim CI
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p prod-manifest
+          RUN_ID=$(gh run list \
+            --repo "${{ github.repository }}" \
+            --branch main \
+            --status success \
+            --limit 20 \
+            --json databaseId,workflowName \
+            --jq '.[] | select(.workflowName == "dbt CD" or .workflowName == "dbt CI") | .databaseId' \
+            | head -n 1 || true)
+          if [ -n "$RUN_ID" ]; then
+            if gh run download "$RUN_ID" --repo "${{ github.repository }}" -n prod-manifest -D prod-manifest 2>/dev/null; then
+              echo "Downloaded prod-manifest from run $RUN_ID"
+            else
+              echo "No prod-manifest artifact found on run $RUN_ID; falling back to full build."
+            fi
+          else
+            echo "No prior main workflow run found; falling back to full build."
+          fi
+
       - name: Debug dbt connection
         run: dbt debug --target ci
 
@@ -60,8 +85,28 @@ jobs:
       - name: Check source freshness
         run: dbt source freshness --target ci
 
-      - name: Build models, snapshots, contracts, and unit tests
-        run: dbt build --target ci
+      - name: Build models and run tests (Slim CI when prod-manifest available)
+        id: dbt_build
+        run: |
+          if [ -f prod-manifest/manifest.json ]; then
+            echo "### Slim CI Node Selection (\`state:modified+\`)" >> "$GITHUB_STEP_SUMMARY"
+            MODIFIED=$(dbt ls --select state:modified+ --state ./prod-manifest --target ci --quiet 2>/dev/null || true)
+            if [ -n "$MODIFIED" ]; then
+              echo '```text' >> "$GITHUB_STEP_SUMMARY"
+              echo "$MODIFIED" >> "$GITHUB_STEP_SUMMARY"
+              echo '```' >> "$GITHUB_STEP_SUMMARY"
+              echo "Running Slim CI for modified subgraph (+state:modified+)..."
+              dbt build --select +state:modified+ --state ./prod-manifest --target ci --static-analysis strict
+              echo "full_build=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "No dbt models modified compared to main — skipping full dbt build." >> "$GITHUB_STEP_SUMMARY"
+              echo "full_build=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "### Full CI Build (no prior \`prod-manifest\` found)" >> "$GITHUB_STEP_SUMMARY"
+            dbt build --target ci --static-analysis strict
+            echo "full_build=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Lint SQL models
         run: dbt lint --target ci
@@ -70,14 +115,10 @@ jobs:
         env:
           DBT_TARGET: ci
         run: |
-          dct validate --warehouse
+          if [ "${{ steps.dbt_build.outputs.full_build }}" = "true" ]; then
+            dct validate --warehouse
+          else
+            # Fast YAML + ref() + exposure check when Slim CI skipped untouched marts
+            dct validate
+          fi
           dct exposures --check
-
-      - name: Upload manifest artifact (main)
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        uses: actions/upload-artifact@v4
-        with:
-          name: prod-manifest
-          path: target/manifest.json
-          if-no-files-found: warn
-          retention-days: 30

@@ -67,4 +67,9 @@ Learning modern **dbt v2 (Fusion engine)** with **DuckDB**, **dbt Semantic Model
 
 ## Workflow & CI/CD
 
-- Every Pull Request to `main` runs [.github/workflows/ci.yml](.github/workflows/ci.yml): installs `dbt` v2 + `dbt-charts`, loads a cached 1-race OpenF1 sample into DuckDB, and runs `dbt debug`, `dbt parse`, `dbt source freshness`, `dbt build`, `dbt lint`, `dct validate --warehouse`, and `dct exposures --check`.
+- **CI ([ci.yml](.github/workflows/ci.yml)) — Slim CI on Pull Requests**: Downloads the latest `prod-manifest` artifact from `main` and runs `dbt build --select +state:modified+ --state ./prod-manifest --target ci --static-analysis strict`, `dbt lint`, `dct validate`, and `dct exposures --check`.
+- **CD ([cd.yml](.github/workflows/cd.yml)) — MotherDuck Prod + Evidence.dev**: Runs on every merge to `main`, every **Monday at 12:00 UTC** (post-race refresh), or manual trigger:
+  1. Incrementally ingests newly completed races into **MotherDuck (`md:f1_prod`)**.
+  2. Runs `dbt build --target prod --static-analysis strict` against MotherDuck and publishes `prod-manifest` for PR Slim CI.
+  3. Extracts production data and builds the static **Evidence.dev** Race Winner Reports bundle (`evidence-race-reports` artifact).
+- **MotherDuck Setup**: Create a read/write access token in MotherDuck (**Settings → Access Tokens**) and store it as a GitHub Actions secret named `MOTHERDUCK_TOKEN` (never commit tokens to Git). Locally, export `MOTHERDUCK_TOKEN` to run `dbt build --target prod` or `uv run python scripts/ingest_openf1.py --db-path md:f1_prod --year 2025 2026 --limit 0`.
