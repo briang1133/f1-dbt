@@ -1,0 +1,4 @@
+name: f1_duckdb
+type: duckdb
+options:
+  filename: ../../../data/f1.duckdb
