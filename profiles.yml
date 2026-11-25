@@ -11,3 +11,9 @@ f1_dbt:
       path: data/f1.duckdb
       schema: analytics_ci
       threads: 4
+    prod:
+      type: duckdb
+      # Authenticates automatically via the MOTHERDUCK_TOKEN environment variable
+      path: md:f1_prod
+      schema: analytics
+      threads: 4

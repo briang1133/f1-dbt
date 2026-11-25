@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import time
 from typing import Any
@@ -118,18 +119,37 @@ def _is_completed_session(session: dict[str, Any], now_utc: datetime) -> bool:
         return True
 
 
-def _connect_duckdb(db_path: Path) -> duckdb.DuckDBPyConnection:
-    """Open DuckDB with v1.4.0 storage compatibility for cross-platform dbt v2 CI."""
-    db_path.parent.mkdir(parents=True, exist_ok=True)
+def _is_motherduck(db_path: str) -> bool:
+    return db_path.startswith("md:")
+
+
+def _connect_duckdb(db_path: str) -> duckdb.DuckDBPyConnection:
+    """Open local DuckDB (v1.4.0 storage compat) or MotherDuck cloud database."""
+    if _is_motherduck(db_path):
+        if not os.environ.get("MOTHERDUCK_TOKEN"):
+            raise RuntimeError(
+                "MOTHERDUCK_TOKEN environment variable is required to connect to MotherDuck (`md:...`)."
+            )
+        # Ensure the target MotherDuck database exists on first run before USEing it.
+        db_name = db_path[len("md:") :].split("?", 1)[0].strip()
+        if db_name:
+            con = duckdb.connect("md:")
+            con.execute(f'CREATE DATABASE IF NOT EXISTS "{db_name}";')
+            con.execute(f'USE "{db_name}";')
+            return con
+        return duckdb.connect(db_path)
+
+    local_path = Path(db_path)
+    local_path.parent.mkdir(parents=True, exist_ok=True)
     return duckdb.connect(
-        str(db_path),
+        str(local_path),
         config={"storage_compatibility_version": "v1.4.0"},
     )
 
 
-def get_loaded_session_keys(db_path: Path) -> set[int]:
+def get_loaded_session_keys(db_path: str) -> set[int]:
     """Return session_key values already loaded in raw_openf1.sessions."""
-    if not db_path.exists():
+    if not _is_motherduck(db_path) and not Path(db_path).exists():
         return set()
     con = _connect_duckdb(db_path)
     try:
@@ -137,7 +157,10 @@ def get_loaded_session_keys(db_path: Path) -> set[int]:
             """
             SELECT count(*)
             FROM information_schema.tables
-            WHERE table_schema = 'raw_openf1' AND table_name = 'sessions'
+            WHERE
+                table_catalog = current_database()
+                AND table_schema = 'raw_openf1'
+                AND table_name = 'sessions'
             """
         ).fetchone()[0]
         if not exists:
@@ -171,7 +194,10 @@ def _evolve_target_schema(con: duckdb.DuckDBPyConnection, table_name: str) -> No
             """
             SELECT column_name, data_type
             FROM information_schema.columns
-            WHERE table_schema = 'raw_openf1' AND table_name = ?
+            WHERE
+                table_catalog = current_database()
+                AND table_schema = 'raw_openf1'
+                AND table_name = ?
             """,
             [table_name],
         ).fetchall()
@@ -191,7 +217,7 @@ def _evolve_target_schema(con: duckdb.DuckDBPyConnection, table_name: str) -> No
 
 def load_into_duckdb(
     tables: dict[str, list[dict[str, Any]]],
-    db_path: Path,
+    db_path: str,
     full_refresh: bool = False,
 ) -> None:
     """Incrementally load OpenF1 batches into raw_openf1.* via DELETE + INSERT BY NAME."""
@@ -227,7 +253,10 @@ def load_into_duckdb(
                 """
                 SELECT count(*)
                 FROM information_schema.tables
-                WHERE table_schema = 'raw_openf1' AND table_name = ?
+                WHERE
+                    table_catalog = current_database()
+                    AND table_schema = 'raw_openf1'
+                    AND table_name = ?
                 """,
                 [table_name],
             ).fetchone()[0] > 0
@@ -307,9 +336,9 @@ def main() -> None:
     )
     parser.add_argument(
         "--db-path",
-        type=Path,
-        default=DEFAULT_DB_PATH,
-        help=f"Target DuckDB file path (default: {DEFAULT_DB_PATH}).",
+        type=str,
+        default=str(DEFAULT_DB_PATH),
+        help=f"Target DuckDB file path or MotherDuck URI (e.g. md:f1_prod; default: {DEFAULT_DB_PATH}).",
     )
     parser.add_argument(
         "--refresh",

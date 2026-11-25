@@ -1,0 +1,172 @@
+name: dbt CD
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # Every Monday at 12:00 UTC (morning after Sunday Grands Prix)
+    - cron: "0 12 * * 1"
+  workflow_dispatch:
+    inputs:
+      years:
+        description: "Space-separated F1 season years to ingest (e.g. 2025 2026)"
+        required: false
+        default: "2025 2026"
+        type: string
+      full_refresh:
+        description: "Force full refresh of incremental dbt models"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: dbt-cd-prod
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  DBT_ENGINE_NO_WARN_SEMANTIC_MANIFEST_VALIDATION: "1"
+
+jobs:
+  deploy-prod:
+    name: Deploy to MotherDuck Prod & Build Evidence Reports
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install Python dependencies
+        run: uv sync --frozen
+
+      - name: Install dbt v2 (Fusion)
+        run: |
+          curl -fsSL https://public.cdn.getdbt.com/fs/install/install.sh | sh -s -- --update
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Check MotherDuck token configuration
+        id: md_check
+        env:
+          MOTHERDUCK_TOKEN: ${{ secrets.MOTHERDUCK_TOKEN }}
+        run: |
+          if [ -n "$MOTHERDUCK_TOKEN" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### ⚠️ MotherDuck Prod Token Not Configured Yet"
+              echo ""
+              echo "Add your MotherDuck access token as a GitHub Actions secret named \`MOTHERDUCK_TOKEN\` to enable cloud production deployments to \`md:f1_prod\`."
+              echo ""
+              echo "Falling back to generating \`prod-manifest\` locally so PR Slim CI stays active."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Cache OpenF1 raw JSON archive
+        uses: actions/cache@v4
+        with:
+          path: data/raw
+          key: openf1-raw-prod-${{ github.run_id }}
+          restore-keys: |
+            openf1-raw-prod-
+            openf1-raw-2025-
+
+      - name: Ingest completed races incrementally into MotherDuck (md:f1_prod)
+        if: steps.md_check.outputs.configured == 'true'
+        env:
+          MOTHERDUCK_TOKEN: ${{ secrets.MOTHERDUCK_TOKEN }}
+        run: |
+          YEARS="${{ inputs.years || '2025 2026' }}"
+          uv run python scripts/ingest_openf1.py \
+            --db-path md:f1_prod \
+            --year $YEARS \
+            --limit 0 \
+            --refresh-metadata
+
+      - name: Debug MotherDuck dbt connection
+        if: steps.md_check.outputs.configured == 'true'
+        env:
+          MOTHERDUCK_TOKEN: ${{ secrets.MOTHERDUCK_TOKEN }}
+        run: dbt debug --target prod
+
+      - name: Check MotherDuck source freshness
+        if: steps.md_check.outputs.configured == 'true'
+        env:
+          MOTHERDUCK_TOKEN: ${{ secrets.MOTHERDUCK_TOKEN }}
+        run: dbt source freshness --target prod
+
+      - name: Build production dbt project on MotherDuck
+        if: steps.md_check.outputs.configured == 'true'
+        env:
+          MOTHERDUCK_TOKEN: ${{ secrets.MOTHERDUCK_TOKEN }}
+        run: |
+          FLAGS="--target prod --static-analysis strict"
+          if [ "${{ inputs.full_refresh }}" = "true" ]; then
+            FLAGS="$FLAGS --full-refresh"
+          fi
+          dbt build $FLAGS
+
+      - name: Fallback parse for prod-manifest (when MOTHERDUCK_TOKEN is not yet set)
+        if: steps.md_check.outputs.configured == 'false'
+        run: dbt parse --target ci
+
+      - name: Upload production manifest artifact (feeds PR Slim CI)
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-manifest
+          path: target/manifest.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Set up Node.js for Evidence.dev static build
+        if: steps.md_check.outputs.configured == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: reports/package-lock.json
+
+      - name: Install Evidence.dev dependencies
+        if: steps.md_check.outputs.configured == 'true'
+        run: npm --prefix reports ci
+
+      - name: Extract MotherDuck prod sources & build Evidence.dev static site
+        if: steps.md_check.outputs.configured == 'true'
+        env:
+          MOTHERDUCK_TOKEN: ${{ secrets.MOTHERDUCK_TOKEN }}
+        run: |
+          cat > reports/sources/f1_duckdb/connection.yaml <<'EOF'
+          name: f1_duckdb
+          type: duckdb
+          options:
+            filename: md:f1_prod
+          EOF
+          npm --prefix reports run sources
+          npm --prefix reports run build
+
+      - name: Upload Evidence.dev static site artifact
+        if: steps.md_check.outputs.configured == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidence-race-reports
+          path: reports/build
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Write CD deployment summary
+        if: steps.md_check.outputs.configured == 'true'
+        run: |
+          {
+            echo "### ✅ Deployed f1-dbt Production Pipeline"
+            echo ""
+            echo "- **Warehouse**: MotherDuck \`md:f1_prod\` (\`analytics\` schema)"
+            echo "- **Seasons**: \`${{ inputs.years || '2025 2026' }}\`"
+            echo "- **Artifacts**: \`prod-manifest\` (for PR Slim CI) + \`evidence-race-reports\` (static site)"
+          } >> "$GITHUB_STEP_SUMMARY"
