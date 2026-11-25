@@ -2,7 +2,7 @@
 title: F1 Race Winner Reports
 ---
 
-Data-driven post-race breakdowns built with **dbt v2**, **DuckDB**, and **Evidence.dev** across all **45 completed Grands Prix (2025–2026)**. Every race report decomposes *why* the winner took P1: clean-air pace, sector-by-sector setup edge, pit crew execution, and tire strategy.
+Data-driven post-race breakdowns built with **dbt v2**, **DuckDB / MotherDuck**, and **Evidence.dev** across all **45 completed Grands Prix (2025–2026)**. Every race report decomposes *why* the winner took P1: clean-air pace, sector-by-sector setup edge, pit crew execution, and tire strategy.
 
 ```sql featured_vegas
 select
@@ -28,27 +28,11 @@ where session_key = 11420 and is_winner = true
   <BigValue data={featured_vegas} value=s1_s2_advantage_s fmt="+0.000's';-0.000's'" title="S1 + S2 Edge vs P2 / Lap" />
 </Grid>
 
-👉 **[Read the full 2026 Las Vegas Race Winner Breakdown →](/races/las-vegas-2026)**
+👉 **[Read the full 2026 Las Vegas Race Winner Breakdown →](/races/las-vegas-2026)** · **[Compare with 2025 Las Vegas GP →](/races/9858)**
 
 ---
 
 ## Explore Every Grand Prix (2025–2026)
-
-```sql seasons
-select distinct season_year
-from f1_duckdb.race_breakdown
-order by season_year desc
-```
-
-<Dropdown
-    data={seasons}
-    name=selected_season
-    value=season_year
-    title="Filter by Season"
-    defaultValue="2026"
->
-    <DropdownOption value="%" valueLabel="All Seasons (2025-2026)" />
-</Dropdown>
 
 ```sql all_races
 select
@@ -64,23 +48,20 @@ select
     winner_vs_p2_pit_lane_s as pit_delta_vs_p2_s,
     tyre_strategy
 from f1_duckdb.race_breakdown
-where
-    is_winner = true
-    and cast(season_year as varchar) like '${inputs.selected_season.value}'
+where is_winner = true
 order by race_date desc
 ```
 
-Click any Grand Prix row below to open its full **Race Winner Breakdown** report:
+Search by year (`2026`, `2025`), circuit, driver, or team—and click any Grand Prix link to open its full **Race Winner Breakdown** report:
 
 <DataTable
     data={all_races}
-    link=report_url
     search=true
-    rows=25
+    rows=50
 >
     <Column id=season_year title="Year" fmt="0" />
     <Column id=race_date title="Date" />
-    <Column id=meeting_name title="Grand Prix" />
+    <Column id=report_url title="Grand Prix" contentType=link linkLabel=meeting_name />
     <Column id=circuit_short_name title="Circuit" />
     <Column id=winner title="Winner" />
     <Column id=team title="Team" />
