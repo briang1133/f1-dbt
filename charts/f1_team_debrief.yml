@@ -1,0 +1,343 @@
+# yaml-language-server: $schema=https://docs.dbtcharts.com/schema/board.json
+title: F1 Team Principal Post-Race Debrief
+text: |
+  Car vs. driver separation, fuel-corrected tire degradation, aero/speed-trap trade-offs,
+  and circuit-archetype profiling powered by `fct_team_debrief`, `int_stint_degradation`,
+  and `int_teammate_benchmark`. Filter by **Season**, **Racing Team**, or **Circuit Archetype**
+  to audit post-race priorities and prepare setup strategy for the next track type.
+
+source: f1_dbt
+
+style:
+  formats:
+    seconds_3dp: ",.3f"
+    deg_slope: "+.3f"
+    kph_delta: "+.1f"
+    pct_2dp: ".2%"
+
+variables:
+  season:
+    data_type: number
+    options:
+      query: season_options
+      column: season_year
+
+  team:
+    label: Racing Team
+    options:
+      query: team_options
+      column: team_name
+
+  archetype:
+    label: Circuit Archetype
+    options:
+      query: archetype_options
+      column: circuit_archetype
+
+queries:
+  season_options:
+    notes: Available F1 seasons loaded in the warehouse.
+    sql: |
+      select distinct season_year
+      from {{ ref('fct_team_debrief') }}
+      order by season_year desc
+
+  team_options:
+    notes: Constructor options for the racing team filter.
+    sql: |
+      select team_name
+      from {{ ref('dim_teams') }}
+      order by team_name
+
+  archetype_options:
+    notes: Circuit archetypes for next-race preparation filtering.
+    sql: |
+      select distinct circuit_archetype
+      from {{ ref('fct_team_debrief') }}
+      order by circuit_archetype
+
+  headline:
+    notes: Top-level Team Principal debrief KPIs across the current filter slice.
+    sql: |
+      select
+          round(avg(car_pace_deficit_pct), 4) as avg_car_deficit_pct,
+          round(avg(avg_deg_slope_s_per_lap), 4) as avg_deg_slope_s,
+          round(avg(teammate_pace_spread_s), 3) as avg_teammate_spread_s,
+          cast(sum(total_purple_mini_sectors) as integer) as purple_mini_sectors
+      from {{ ref('fct_team_debrief') }}
+      where
+          {{ filter('season_year', season) }}
+          and {{ filter('team_name', team) }}
+          and {{ filter('circuit_archetype', archetype) }}
+    formats:
+      avg_car_deficit_pct: pct_2dp
+      avg_deg_slope_s: deg_slope
+      avg_teammate_spread_s: seconds_3dp
+      purple_mini_sectors: integer
+
+  pace_deficit_trend:
+    notes: Fuel-corrected car pace deficit (%) to session benchmark across rounds (top 5 teams or selected team).
+    sql: |
+      with filtered as (
+          select *
+          from {{ ref('fct_team_debrief') }}
+          where
+              car_pace_deficit_pct is not null
+              and {{ filter('season_year', season) }}
+              and {{ filter('team_name', team) }}
+              and {{ filter('circuit_archetype', archetype) }}
+      ),
+      top_teams as (
+          select team_name
+          from filtered
+          group by team_name
+          order by sum(team_points_scored) desc
+          limit 5
+      ),
+      season_span as (
+          select count(distinct season_year) as season_count
+          from filtered
+      )
+      select
+          f.race_date,
+          case
+              when s.season_count > 1
+                  then f.team_name || ' (' || cast(f.season_year as varchar) || ')'
+              else f.team_name
+          end as team_series,
+          round(f.car_pace_deficit_pct, 4) as car_pace_deficit_pct
+      from filtered as f
+      inner join top_teams as t
+          on f.team_name = t.team_name
+      cross join season_span as s
+      order by f.race_date, team_series
+    formats:
+      car_pace_deficit_pct: pct_2dp
+
+  deg_by_team:
+    notes: Mean fuel-corrected tire degradation slope (seconds lost per lap) by constructor.
+    sql: |
+      select
+          team_name,
+          round(avg(avg_deg_slope_s_per_lap), 4) as avg_deg_s_per_lap
+      from {{ ref('fct_team_debrief') }}
+      where
+          avg_deg_slope_s_per_lap is not null
+          and {{ filter('season_year', season) }}
+          and {{ filter('team_name', team) }}
+          and {{ filter('circuit_archetype', archetype) }}
+      group by team_name
+      order by avg_deg_s_per_lap asc
+    formats:
+      avg_deg_s_per_lap: deg_slope
+
+  teammate_spread:
+    notes: Mean fuel-corrected lap-time spread between Car 1 and Car 2 in identical machinery.
+    sql: |
+      select
+          team_name,
+          round(avg(teammate_pace_spread_s), 3) as avg_spread_s
+      from {{ ref('fct_team_debrief') }}
+      where
+          teammate_pace_spread_s is not null
+          and {{ filter('season_year', season) }}
+          and {{ filter('team_name', team) }}
+          and {{ filter('circuit_archetype', archetype) }}
+      group by team_name
+      order by avg_spread_s asc
+    formats:
+      avg_spread_s: seconds_3dp
+
+  aero_profile:
+    notes: Speed-trap delta vs. field average (positive = lower drag / higher top speed).
+    sql: |
+      select
+          team_name,
+          round(avg(speed_trap_delta_vs_field_kph), 1) as speed_delta_kph
+      from {{ ref('fct_team_debrief') }}
+      where
+          speed_trap_delta_vs_field_kph is not null
+          and {{ filter('season_year', season) }}
+          and {{ filter('team_name', team) }}
+          and {{ filter('circuit_archetype', archetype) }}
+      group by team_name
+      order by speed_delta_kph desc
+    formats:
+      speed_delta_kph: kph_delta
+
+  deg_by_cspec:
+    notes: Fuel-corrected tire degradation slope by Pirelli C-spec compound (C1 hardest to C5 softest).
+    sql: |
+      select
+          pirelli_c_spec,
+          round(avg(deg_slope_s_per_lap), 4) as avg_deg_s_per_lap
+      from {{ ref('int_stint_degradation') }}
+      where
+          deg_slope_s_per_lap is not null
+          and pirelli_c_spec in ('C1', 'C2', 'C3', 'C4', 'C5')
+          and {{ filter('season_year', season) }}
+          and {{ filter('team_name', team) }}
+          and {{ filter('circuit_archetype', archetype) }}
+      group by pirelli_c_spec
+      order by pirelli_c_spec asc
+    formats:
+      avg_deg_s_per_lap: deg_slope
+
+  archetype_summary:
+    notes: Performance breakdown by circuit archetype to prioritize next-race setup and strategy.
+    sql: |
+      select
+          circuit_archetype as archetype,
+          cast(count(*) as integer) as entries,
+          round(avg(car_pace_deficit_pct), 4) as car_deficit,
+          round(avg(avg_deg_slope_s_per_lap), 4) as deg_slope,
+          round(avg(speed_trap_delta_vs_field_kph), 1) as speed_delta_kph,
+          round(avg(teammate_pace_spread_s), 3) as driver_spread_s,
+          round(avg(team_points_scored), 1) as avg_pts
+      from {{ ref('fct_team_debrief') }}
+      where
+          {{ filter('season_year', season) }}
+          and {{ filter('team_name', team) }}
+          and {{ filter('circuit_archetype', archetype) }}
+      group by circuit_archetype
+      order by car_deficit asc nulls last
+    formats:
+      entries: integer
+      car_deficit: pct_2dp
+      deg_slope: deg_slope
+      speed_delta_kph: kph_delta
+      driver_spread_s: seconds_3dp
+
+  recent_debriefs:
+    notes: Most recent race-by-race debrief diagnoses with primary engineering focus area.
+    sql: |
+      select
+          cast(race_date as varchar) as race_date,
+          circuit_short_name as circuit,
+          team_name as team,
+          lead_driver_acronym as lead,
+          car_pace_rank as pace_rk,
+          round(car_pace_deficit_pct, 4) as car_deficit,
+          round(avg_deg_slope_s_per_lap, 4) as deg_slope,
+          round(teammate_pace_spread_s, 3) as spread_s,
+          round(speed_trap_delta_vs_field_kph, 1) as trap_kph,
+          primary_focus_area as focus_area
+      from {{ ref('fct_team_debrief') }}
+      where
+          {{ filter('season_year', season) }}
+          and {{ filter('team_name', team) }}
+          and {{ filter('circuit_archetype', archetype) }}
+      order by race_date desc, car_pace_rank asc nulls last
+      limit 30
+    formats:
+      pace_rk: integer
+      car_deficit: pct_2dp
+      deg_slope: deg_slope
+      spread_s: seconds_3dp
+      trap_kph: kph_delta
+
+charts:
+  deficit_kpi:
+    type: kpi
+    query: headline
+    label: Avg car deficit
+    value: avg_car_deficit_pct
+
+  deg_kpi:
+    type: kpi
+    query: headline
+    label: Avg tire deg (s/lap)
+    value: avg_deg_slope_s
+
+  spread_kpi:
+    type: kpi
+    query: headline
+    label: Teammate spread (s)
+    value: avg_teammate_spread_s
+
+  purple_kpi:
+    type: kpi
+    query: headline
+    label: Purple mini-sectors
+    value: purple_mini_sectors
+
+  pace_trend_line:
+    type: line
+    query: pace_deficit_trend
+    title: Car Pace Deficit Trajectory (% off Benchmark)
+    subtitle: Lower is faster — tracks upgrade effectiveness using each team's faster car
+    x: race_date
+    y: car_pace_deficit_pct
+    color: team_series
+    y_label: Car Deficit (%)
+
+  deg_bar:
+    type: bar
+    query: deg_by_team
+    title: Fuel-Corrected Tire Degradation by Team
+    subtitle: Mean seconds lost per lap of tire age (lower preserves tires better)
+    x: team_name
+    y: avg_deg_s_per_lap
+    y_label: Deg Slope (s/lap)
+    sort:
+      by: avg_deg_s_per_lap
+
+  spread_bar:
+    type: bar
+    query: teammate_spread
+    title: Teammate Pace Spread (Driver Gap)
+    subtitle: Mean fuel-corrected gap between Car 1 and Car 2 in identical hardware
+    x: team_name
+    y: avg_spread_s
+    y_label: Gap (s/lap)
+    sort:
+      by: avg_spread_s
+
+  aero_bar:
+    type: bar
+    query: aero_profile
+    title: Speed-Trap Aero Profile vs. Field
+    subtitle: Positive = lower drag / top-speed trim; negative = higher downforce trim
+    x: team_name
+    y: speed_delta_kph
+    y_label: Delta vs. Field (kph)
+
+  cspec_bar:
+    type: bar
+    query: deg_by_cspec
+    title: Tire Degradation by Pirelli C-Spec
+    subtitle: C1 (hardest) to C5 (softest) across all measured stints
+    x: pirelli_c_spec
+    y: avg_deg_s_per_lap
+    y_label: Deg Slope (s/lap)
+
+  archetype_table:
+    type: table
+    query: archetype_summary
+    title: Next-Race Prep — Performance by Circuit Archetype
+
+  debrief_table:
+    type: table
+    query: recent_debriefs
+    title: Recent Post-Race Engineering Debriefs
+
+rows:
+  - cols:
+      - deficit_kpi
+      - deg_kpi
+      - spread_kpi
+      - purple_kpi
+
+  - pace_trend_line
+
+  - cols:
+      - deg_bar
+      - spread_bar
+
+  - cols:
+      - aero_bar
+      - cspec_bar
+
+  - archetype_table
+
+  - debrief_table

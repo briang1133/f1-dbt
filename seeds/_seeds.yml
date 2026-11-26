@@ -1,0 +1,49 @@
+version: 2
+
+seeds:
+  - name: circuit_profiles
+    description: >
+      Reference lookup of Formula 1 circuit archetypes, downforce/degradation
+      demands, Pirelli dry compound C-spec allocations (C1-C5), and per-lap
+      fuel-burn lap-time sensitivity used for fuel-corrected tire degradation
+      and next-race strategy profiling.
+    columns:
+      - name: circuit_short_name
+        description: OpenF1 circuit short name joining to stg_openf1__sessions.
+        data_tests:
+          - unique
+          - not_null
+      - name: circuit_archetype
+        description: Primary engineering track archetype for cross-circuit benchmarking.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - high_downforce_street
+                  - low_drag_power
+                  - high_speed_aero
+                  - rear_limited_traction
+                  - balanced_all_round
+      - name: downforce_level
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['low', 'medium_low', 'medium', 'medium_high', 'high']
+      - name: tyre_deg_severity
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['low', 'medium', 'high']
+      - name: overtaking_difficulty
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['low', 'medium', 'high']
+      - name: fuel_effect_s_per_lap
+        description: Estimated lap-time gain per lap of fuel burned (seconds/lap).
+        data_tests:
+          - not_null

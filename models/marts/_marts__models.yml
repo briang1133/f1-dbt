@@ -403,6 +403,216 @@ models:
       - name: winner_vs_p2_pit_lane_s
         data_type: double
 
+  - name: fct_team_debrief
+    description: >
+      Team Principal post-race debrief fact table at one row per constructor per
+      Grand Prix, uniting all four engineering pillars: Car Pace & Aero Profile,
+      Fuel-Corrected Tire Degradation, Driver Spread & Consistency, and Pit Wall
+      Operations, enriched with circuit archetypes and Pirelli C-specs.
+    config:
+      contract:
+        enforced: true
+    semantic_model:
+      enabled: true
+    agg_time_dimension: race_date
+    columns:
+      - name: team_race_id
+        description: Primary key (`session_key-team_name`).
+        data_type: varchar
+        entity:
+          type: primary
+          name: team_debrief
+        constraints:
+          - type: not_null
+        data_tests:
+          - unique
+          - not_null
+      - name: session_key
+        data_type: bigint
+        constraints:
+          - type: not_null
+      - name: meeting_key
+        data_type: bigint
+        constraints:
+          - type: not_null
+      - name: meeting_name
+        data_type: varchar
+        dimension:
+          type: categorical
+      - name: circuit_short_name
+        data_type: varchar
+        dimension:
+          type: categorical
+      - name: circuit_archetype
+        data_type: varchar
+        dimension:
+          type: categorical
+        constraints:
+          - type: not_null
+      - name: downforce_level
+        data_type: varchar
+        dimension:
+          type: categorical
+        constraints:
+          - type: not_null
+      - name: tyre_deg_severity
+        data_type: varchar
+        dimension:
+          type: categorical
+        constraints:
+          - type: not_null
+      - name: overtaking_difficulty
+        data_type: varchar
+        dimension:
+          type: categorical
+        constraints:
+          - type: not_null
+      - name: pirelli_hard_spec
+        data_type: varchar
+      - name: pirelli_medium_spec
+        data_type: varchar
+      - name: pirelli_soft_spec
+        data_type: varchar
+      - name: season_year
+        data_type: integer
+        dimension:
+          type: categorical
+      - name: race_date
+        data_type: date
+        dimension:
+          type: time
+        granularity: day
+        constraints:
+          - type: not_null
+      - name: team_name
+        data_type: varchar
+        entity:
+          type: foreign
+          name: team
+        dimension:
+          type: categorical
+        constraints:
+          - type: not_null
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_teams')
+                field: team_name
+      - name: team_colour_hex
+        data_type: varchar
+      - name: team_points_scored
+        data_type: double
+        constraints:
+          - type: not_null
+      - name: best_finish_position
+        data_type: integer
+      - name: dnf_count
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: service_pit_stops
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: avg_stop_duration_seconds
+        data_type: double
+      - name: slow_or_issue_stop_count
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: pit_stop_delta_vs_best_team_s
+        data_type: double
+      - name: avg_pit_transit_seconds
+        data_type: double
+      - name: avg_in_lap_delta_s
+        data_type: double
+      - name: avg_out_lap_delta_s
+        data_type: double
+      - name: car_pace_rank
+        data_type: integer
+      - name: car_pace_deficit_s
+        data_type: double
+      - name: car_pace_deficit_pct
+        data_type: double
+      - name: avg_i1_speed_kph
+        data_type: double
+      - name: avg_i2_speed_kph
+        data_type: double
+      - name: avg_speed_trap_kph
+        data_type: double
+      - name: max_speed_trap_kph
+        data_type: integer
+      - name: speed_trap_delta_vs_field_kph
+        data_type: double
+      - name: total_purple_mini_sectors
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: measured_deg_stints
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: avg_deg_slope_s_per_lap
+        data_type: double
+      - name: deg_delta_vs_field_s_per_lap
+        data_type: double
+      - name: hard_deg_slope_s_per_lap
+        data_type: double
+      - name: medium_deg_slope_s_per_lap
+        data_type: double
+      - name: soft_deg_slope_s_per_lap
+        data_type: double
+      - name: avg_stint_dropoff_s
+        data_type: double
+      - name: lead_driver_acronym
+        data_type: varchar
+      - name: second_driver_acronym
+        data_type: varchar
+      - name: teammate_pace_spread_s
+        data_type: double
+      - name: avg_driver_consistency_iqr_s
+        data_type: double
+      - name: primary_focus_area
+        data_type: varchar
+        dimension:
+          type: categorical
+        constraints:
+          - type: not_null
+        data_tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - Pit / Reliability Execution
+                  - Car Pace Deficit
+                  - High Tire Degradation
+                  - Driver Pace Spread
+                  - Benchmark Execution
+    metrics:
+      - name: avg_car_pace_deficit_pct
+        description: Mean fuel-corrected pace deficit of the team's faster car vs. the race benchmark car.
+        label: Avg Car Pace Deficit (%)
+        type: simple
+        agg: average
+        expr: car_pace_deficit_pct
+      - name: avg_tyre_deg_slope
+        description: Mean fuel-corrected tire degradation slope across measured stints (seconds lost per lap).
+        label: Avg Tire Deg Slope (s/lap)
+        type: simple
+        agg: average
+        expr: avg_deg_slope_s_per_lap
+      - name: avg_teammate_pace_spread
+        description: Mean fuel-corrected lap-time gap between faster and slower teammates in identical hardware.
+        label: Avg Teammate Spread (s/lap)
+        type: simple
+        agg: average
+        expr: teammate_pace_spread_s
+      - name: total_purple_mini_sectors
+        description: Total session-best (purple) mini-sectors recorded on clean racing laps.
+        label: Purple Mini-Sectors
+        type: simple
+        agg: sum
+        expr: total_purple_mini_sectors
+
 metrics:
   - name: elite_pit_stop_rate
     description: Share of stationary service pit stops completed in under 2.5 seconds.
@@ -469,3 +679,15 @@ saved_queries:
       group_by:
         - Dimension('team_race__season_year')
         - Dimension('team_race__team_name')
+
+  - name: team_principal_debrief_by_archetype
+    description: Constructor car pace deficit, tire degradation slope, and teammate spread by circuit archetype.
+    query_params:
+      metrics:
+        - avg_car_pace_deficit_pct
+        - avg_tyre_deg_slope
+        - avg_teammate_pace_spread
+        - total_purple_mini_sectors
+      group_by:
+        - Dimension('team_debrief__circuit_archetype')
+        - Dimension('team_debrief__team_name')
